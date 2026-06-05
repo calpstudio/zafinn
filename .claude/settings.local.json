@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/estudiorom/.claude/projects/-Users-estudiorom-Desktop-calp-financeiro/memory && echo \"ok\")",
+      "WebFetch(domain:meuplannerfinanceiro.com.br)"
+    ],
+    "additionalDirectories": [
+      "/Users/estudiorom/.claude/projects/-Users-estudiorom-Desktop-calp-financeiro/memory"
+    ]
+  }
+}
