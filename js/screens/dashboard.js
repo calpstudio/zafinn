@@ -274,7 +274,7 @@ const ZDashboard = (function() {
               `).join('')}
               <div style="padding:12px 16px 16px; border-top:1px solid var(--border-light); margin-top:8px">
                 <button onclick="ZDashboard.runAiAnalysis()"
-                  style="width:100%; padding:10px; background:linear-gradient(135deg, #7C3AED, #2563EB); color:white; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity 0.15s"
+                  style="width:100%; padding:10px; background:linear-gradient(135deg, #337418, #5DD62C); color:white; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity 0.15s"
                   onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
                   ✨ Diagnóstico com IA
                 </button>

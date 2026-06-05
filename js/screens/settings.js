@@ -76,7 +76,7 @@ const ZSettings = (function() {
           <div style="display:flex; flex-direction:column; gap:20px">
 
             <!-- Card principal do app -->
-            <div style="background:linear-gradient(135deg, var(--primary) 0%, #1D4ED8 60%, var(--purple) 100%); border-radius:var(--radius-lg); padding:28px; color:white; text-align:center; box-shadow:var(--shadow-lg)">
+            <div style="background:linear-gradient(135deg, var(--primary) 0%, #337418 60%, var(--purple) 100%); border-radius:var(--radius-lg); padding:28px; color:white; text-align:center; box-shadow:var(--shadow-lg)">
               <div style="font-size:48px; margin-bottom:12px">💎</div>
               <div style="font-size:28px; font-weight:900; letter-spacing:-1px; margin-bottom:6px">ZAFINN</div>
               <div style="font-size:14px; opacity:0.85; margin-bottom:20px">Suas finanças bem organizadas</div>
@@ -220,7 +220,7 @@ const ZSettings = (function() {
           </div>
         </div>
 
-        <div style="margin:20px 16px; padding:16px; background:linear-gradient(135deg, var(--primary) 0%, #1D4ED8 100%); border-radius:var(--radius-lg); color:white; text-align:center">
+        <div style="margin:20px 16px; padding:16px; background:linear-gradient(135deg, var(--primary) 0%, #337418 100%); border-radius:var(--radius-lg); color:white; text-align:center">
           <div style="font-size:28px; margin-bottom:8px">💎</div>
           <div style="font-size:18px; font-weight:800; margin-bottom:4px">ZAFINN</div>
           <div style="font-size:12px; opacity:0.8">Suas finanças bem organizadas</div>
