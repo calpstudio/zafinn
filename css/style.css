@@ -1235,6 +1235,7 @@ body {
   height: 34px;
   width: auto;
   display: block;
+  align-self: flex-start;
   filter: brightness(0);
 }
 .auth-logo-sub {
