@@ -179,11 +179,8 @@ const ZAuth = (function() {
       content = `
         <div class="auth-card">
           <div class="auth-logo">
-            <div class="auth-logo-icon">💎</div>
-            <div>
-              <div class="auth-logo-name">ZAFINN</div>
-              <div class="auth-logo-sub">finanças bem organizadas</div>
-            </div>
+            <img src="images/logo.png" alt="ZAFINN" class="auth-logo-img">
+            <div class="auth-logo-sub">finanças bem organizadas</div>
           </div>
           <h2 class="auth-title">Bem-vindo de volta</h2>
           <p class="auth-subtitle">Entre na sua conta para continuar</p>
@@ -212,11 +209,8 @@ const ZAuth = (function() {
       content = `
         <div class="auth-card">
           <div class="auth-logo">
-            <div class="auth-logo-icon">💎</div>
-            <div>
-              <div class="auth-logo-name">ZAFINN</div>
-              <div class="auth-logo-sub">finanças bem organizadas</div>
-            </div>
+            <img src="images/logo.png" alt="ZAFINN" class="auth-logo-img">
+            <div class="auth-logo-sub">finanças bem organizadas</div>
           </div>
           <h2 class="auth-title">Criar conta</h2>
           <p class="auth-subtitle">Comece a organizar suas finanças hoje</p>
@@ -254,11 +248,8 @@ const ZAuth = (function() {
       content = `
         <div class="auth-card">
           <div class="auth-logo">
-            <div class="auth-logo-icon">💎</div>
-            <div>
-              <div class="auth-logo-name">ZAFINN</div>
-              <div class="auth-logo-sub">finanças bem organizadas</div>
-            </div>
+            <img src="images/logo.png" alt="ZAFINN" class="auth-logo-img">
+            <div class="auth-logo-sub">finanças bem organizadas</div>
           </div>
           <h2 class="auth-title">Recuperar senha</h2>
           <p class="auth-subtitle">Enviaremos um link para redefinir sua senha</p>
@@ -279,11 +270,8 @@ const ZAuth = (function() {
     else if (view === 'check-email') {
       content = `
         <div class="auth-card" style="text-align:center">
-          <div class="auth-logo" style="justify-content:center">
-            <div class="auth-logo-icon">💎</div>
-            <div>
-              <div class="auth-logo-name">ZAFINN</div>
-            </div>
+          <div class="auth-logo" style="align-items:center">
+            <img src="images/logo.png" alt="ZAFINN" class="auth-logo-img">
           </div>
           <div style="font-size:48px; margin:24px 0">📬</div>
           <h2 class="auth-title">Verifique seu e-mail</h2>
@@ -303,11 +291,8 @@ const ZAuth = (function() {
     else if (view === 'check-email-reset') {
       content = `
         <div class="auth-card" style="text-align:center">
-          <div class="auth-logo" style="justify-content:center">
-            <div class="auth-logo-icon">💎</div>
-            <div>
-              <div class="auth-logo-name">ZAFINN</div>
-            </div>
+          <div class="auth-logo" style="align-items:center">
+            <img src="images/logo.png" alt="ZAFINN" class="auth-logo-img">
           </div>
           <div style="font-size:48px; margin:24px 0">🔑</div>
           <h2 class="auth-title">Link enviado!</h2>

@@ -179,11 +179,8 @@ const ZApp = (function() {
     return `
       <aside class="sidebar">
         <div class="sidebar-logo">
-          <div class="logo-icon">💎</div>
-          <div>
-            <div class="logo-name">ZAFINN</div>
-            <div class="logo-sub">finanças bem organizadas</div>
-          </div>
+          <img src="images/logo.png" alt="ZAFINN" class="sidebar-logo-img">
+          <div class="logo-sub">finanças bem organizadas</div>
         </div>
 
         <nav class="sidebar-nav">
