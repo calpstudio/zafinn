@@ -214,7 +214,24 @@ const ZModals = (function() {
         const idx = txs.findIndex(t => t.id === editId);
         if (idx >= 0) txs[idx] = tx;
       } else {
-        const txDesc = mode === 'installment' ? `${desc} 1/${installments}` : desc;
+        // Calcular número correto da parcela baseado na data informada vs mês atual
+        let firstInstallNum = 1;
+        let startMonth = date.substring(0, 7);
+
+        if (mode === 'installment') {
+          const purchaseMonth = date.substring(0, 7);
+          // Se a compra foi em mês anterior: primeira parcela entra no mês seguinte (modelo cartão BR)
+          // Se a compra foi no mesmo mês ou futuro: primeira parcela entra no próprio mês
+          startMonth = month > purchaseMonth
+            ? ZUtils.nextMonth(purchaseMonth)
+            : purchaseMonth;
+
+          const [sy, sm] = startMonth.split('-').map(Number);
+          const [my, mm] = month.split('-').map(Number);
+          firstInstallNum = Math.max(1, (my - sy) * 12 + (mm - sm) + 1);
+        }
+
+        const txDesc = mode === 'installment' ? `${desc} ${firstInstallNum}/${installments}` : desc;
         const newTx = { id: ZUtils.generateId(), date, description: txDesc, amount, type, category: selectedCat, account, notes };
         await ZDB.addTransaction(month, newTx);
         if (!ZApp.state.data.months[month]) ZApp.state.data.months[month] = { transactions: [], budget: { incomes: [], expenses: [] } };
@@ -222,7 +239,7 @@ const ZModals = (function() {
 
         if (mode === 'recurring' || mode === 'installment') {
           const dayNum = Math.min(parseInt(date.split('-')[2]) || 1, 28);
-          const startMonth = date.substring(0, 7); // mês da data informada, não o mês atual
+          const isFinished = mode === 'installment' && firstInstallNum >= installments;
           const template = {
             description: desc,
             amount, type,
@@ -231,10 +248,12 @@ const ZModals = (function() {
             day_of_month: dayNum,
             kind: mode === 'recurring' ? 'recurring' : 'installment',
             total_installments: installments,
-            start_month: startMonth
+            start_month: startMonth,
+            last_created_month: month,
+            is_active: !isFinished
           };
           const tmplId = await ZDB.addRecurringTemplate(template);
-          const newTmpl = { id: tmplId, ...template, last_created_month: startMonth, is_active: true };
+          const newTmpl = { id: tmplId, ...template };
           ZApp.state.data.recurringTemplates = [...(ZApp.state.data.recurringTemplates || []), newTmpl];
         }
       }

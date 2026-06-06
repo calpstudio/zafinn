@@ -435,8 +435,8 @@ const ZDB = (function() {
       kind: tmpl.kind,
       total_installments: tmpl.total_installments || null,
       start_month: tmpl.start_month,
-      last_created_month: tmpl.start_month,
-      is_active: true
+      last_created_month: tmpl.last_created_month || tmpl.start_month,
+      is_active: tmpl.is_active !== false
     }).select('id').single();
     if (error) throw new Error('Erro ao salvar template: ' + error.message);
     return data.id;
