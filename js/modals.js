@@ -222,6 +222,7 @@ const ZModals = (function() {
 
         if (mode === 'recurring' || mode === 'installment') {
           const dayNum = Math.min(parseInt(date.split('-')[2]) || 1, 28);
+          const startMonth = date.substring(0, 7); // mês da data informada, não o mês atual
           const template = {
             description: desc,
             amount, type,
@@ -230,10 +231,10 @@ const ZModals = (function() {
             day_of_month: dayNum,
             kind: mode === 'recurring' ? 'recurring' : 'installment',
             total_installments: installments,
-            start_month: month
+            start_month: startMonth
           };
           const tmplId = await ZDB.addRecurringTemplate(template);
-          const newTmpl = { id: tmplId, ...template, last_created_month: month, is_active: true };
+          const newTmpl = { id: tmplId, ...template, last_created_month: startMonth, is_active: true };
           ZApp.state.data.recurringTemplates = [...(ZApp.state.data.recurringTemplates || []), newTmpl];
         }
       }
