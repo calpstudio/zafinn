@@ -1510,3 +1510,90 @@ body {
   text-align: center;
 }
 
+
+/* ================================================
+   CARTÕES DE CRÉDITO E FATURAS
+   ================================================ */
+.cards-page { padding: 20px; max-width: 860px; }
+.cards-list { display: flex; flex-direction: column; gap: 28px; }
+
+.card-block {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Visual do cartão */
+.card-visual {
+  padding: 22px 24px 18px;
+  color: white;
+  position: relative;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.cv-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.cv-name { font-size: 18px; font-weight: 800; letter-spacing: 0.3px; }
+.cv-chip { display: flex; flex-direction: column; gap: 3px; opacity: 0.6; }
+.cv-chip-line { width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; }
+.cv-chip-line:nth-child(2) { width: 16px; }
+.cv-bottom { display: flex; gap: 28px; }
+.cv-lbl { font-size: 9px; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.cv-val { font-size: 14px; font-weight: 700; }
+
+/* Blocos de fatura */
+.invoice-block { padding: 18px 24px; }
+.invoice-block.open { border-bottom: 1px solid var(--border-light); }
+.invoice-block.closed { background: var(--bg-secondary); }
+
+.invoice-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.invoice-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.open-tag { color: var(--primary); }
+.closed-tag { color: var(--text-muted); }
+
+.invoice-due { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.invoice-due.urgent { color: #f59e0b; }
+.invoice-due.overdue { color: var(--danger); }
+
+.invoice-total { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; color: var(--text-primary); }
+.invoice-total.muted { color: var(--text-muted); font-size: 18px; }
+
+/* Barra de limite */
+.limit-info { margin-bottom: 14px; }
+.limit-track { background: var(--bg-secondary); border-radius: 999px; height: 6px; margin-bottom: 5px; }
+.limit-fill { height: 6px; border-radius: 999px; transition: width 0.4s ease; }
+.limit-text { font-size: 11px; color: var(--text-muted); }
+
+/* Lista de transações */
+.invoice-tx-list { display: flex; flex-direction: column; gap: 0; }
+.invoice-tx-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid var(--border-light);
+  gap: 12px;
+}
+.invoice-tx-row:last-child { border-bottom: none; }
+.tx-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.tx-cat { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.tx-desc { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+.tx-date { font-size: 11px; color: var(--text-muted); }
+.tx-val { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.tx-more { font-size: 12px; color: var(--primary); font-weight: 600; text-align: center; padding: 10px 0 0; }
+.invoice-empty { font-size: 13px; color: var(--text-muted); padding: 8px 0; }
+
+/* Ações */
+.card-actions { padding: 12px 24px 16px; display: flex; justify-content: flex-end; }
+.card-del-btn {
+  font-size: 12px; color: var(--danger); background: none; border: none;
+  cursor: pointer; font-weight: 600; opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.card-del-btn:hover { opacity: 1; }
+
+@media (min-width: 1024px) {
+  .cards-page { padding: 28px 32px; }
+  .cards-list { gap: 32px; }
+}

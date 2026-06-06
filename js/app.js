@@ -76,6 +76,14 @@ const ZApp = (function() {
       }).catch(() => { state.data.categoryHistory = null; });
     }
 
+    // Carrega transações dos últimos 3 meses ao entrar em Cartões
+    if (screen === 'cards' && !state.data.cardTransactions) {
+      ZDB.loadCardTransactions(3).then(txs => {
+        state.data.cardTransactions = txs;
+        if (state.screen === 'cards') render();
+      }).catch(() => { state.data.cardTransactions = []; });
+    }
+
     render();
     const content = document.getElementById('page-content');
     if (content) content.scrollTop = 0;
@@ -163,6 +171,7 @@ const ZApp = (function() {
         label: 'Planejamento',
         items: [
           { id: 'goals',        label: 'Metas',        icon: iGoals() },
+          { id: 'cards',        label: 'Cartões',      icon: iCards() },
           { id: 'cashflow',     label: 'Fluxo Futuro', icon: iCashflow() },
           { id: 'patrimony',    label: 'Patrimônio',   icon: iPatrimony() },
           { id: 'cs_relatorios',label: 'Relatórios',   icon: iReports() },
@@ -256,6 +265,7 @@ const ZApp = (function() {
       cashflow:     { title: 'Fluxo Futuro',    sub: 'Projeção dos próximos meses' },
       patrimony:    { title: 'Patrimônio',      sub: 'Bens, ativos e dívidas' },
       goals:        { title: 'Metas',           sub: 'Seus objetivos financeiros' },
+      cards:        { title: 'Cartões',         sub: 'Faturas e limites dos seus cartões' },
       settings:     { title: 'Configurações',   sub: 'Preferências do sistema' },
     };
     return map[screen] || { title: screen.charAt(0).toUpperCase() + screen.slice(1), sub: '' };
@@ -337,6 +347,7 @@ const ZApp = (function() {
       case 'patrimony':    return ZPatrimony.render(state);
       case 'cashflow':     return ZCashflow.render(state);
       case 'goals':        return ZGoals.render(state);
+      case 'cards':        return ZCards.render(state);
       case 'settings':     return ZSettings.render(state);
       default:
         if (state.screen.startsWith('cs_')) return renderComingSoon(state.screen);
@@ -414,6 +425,9 @@ const ZApp = (function() {
   }
   function iGoals() {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+  }
+  function iCards() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
   }
   function iPlus() {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;

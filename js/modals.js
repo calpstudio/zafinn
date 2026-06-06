@@ -18,6 +18,7 @@ const ZModals = (function() {
       case 'addGoal':             return renderAddGoal(params);
       case 'contributeGoal':      return renderContributeGoal(params);
       case 'onboarding':          return renderOnboarding(params);
+      case 'addCard':             return renderAddCard(params);
       default: return '';
     }
   }
@@ -1111,6 +1112,95 @@ const ZModals = (function() {
       .replace(/\n/g, '<br>');
   }
 
+  /* ================================================
+     CARTÃO DE CRÉDITO
+     ================================================ */
+  function renderAddCard() {
+    const colors = ZCards.CARD_COLORS;
+    return `
+      <div class="modal-header">
+        <h3 class="modal-title">Novo Cartão de Crédito</h3>
+        <button class="modal-close" onclick="ZModals.close()">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label class="form-label">NOME DO CARTÃO</label>
+          <input id="card-name" type="text" class="form-input" placeholder="Ex: Nubank, Itaú Visa, Inter...">
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+          <div class="form-group">
+            <label class="form-label">DIA DE FECHAMENTO</label>
+            <input id="card-closing" type="number" class="form-input" placeholder="Ex: 3" min="1" max="28">
+          </div>
+          <div class="form-group">
+            <label class="form-label">DIA DE VENCIMENTO</label>
+            <input id="card-due" type="number" class="form-input" placeholder="Ex: 10" min="1" max="28">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">LIMITE DO CARTÃO (OPCIONAL)</label>
+          <input id="card-limit" type="number" class="form-input" placeholder="Ex: 5000.00" step="0.01" min="0">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">COR DO CARTÃO</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px">
+            ${colors.map((c, i) => `
+              <div onclick="ZModals.selectCardColor('${c}')" id="card-color-${i}"
+                style="width:36px; height:36px; border-radius:10px; background:${c}; cursor:pointer;
+                border: 3px solid ${i === 0 ? '#5DD62C' : 'transparent'}; transition:border-color .15s">
+              </div>
+            `).join('')}
+          </div>
+          <input type="hidden" id="card-color-val" value="${colors[0]}">
+        </div>
+
+        <div id="card-error" class="form-error" style="display:none"></div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="ZModals.close()">Cancelar</button>
+          <button class="btn btn-primary" onclick="ZModals.saveCard()">Salvar cartão</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function selectCardColor(color) {
+    document.getElementById('card-color-val').value = color;
+    ZCards.CARD_COLORS.forEach((c, i) => {
+      const el = document.getElementById(`card-color-${i}`);
+      if (el) el.style.borderColor = c === color ? '#5DD62C' : 'transparent';
+    });
+  }
+
+  async function saveCard() {
+    const name    = document.getElementById('card-name')?.value?.trim();
+    const closing = parseInt(document.getElementById('card-closing')?.value);
+    const due     = parseInt(document.getElementById('card-due')?.value);
+    const limit   = parseFloat(document.getElementById('card-limit')?.value) || null;
+    const color   = document.getElementById('card-color-val')?.value || '#0F0F0F';
+
+    const errEl = document.getElementById('card-error');
+    if (!name) { errEl.textContent = 'Informe o nome do cartão'; errEl.style.display='block'; return; }
+    if (!closing || closing < 1 || closing > 28) { errEl.textContent = 'Dia de fechamento inválido (1-28)'; errEl.style.display='block'; return; }
+    if (!due || due < 1 || due > 28) { errEl.textContent = 'Dia de vencimento inválido (1-28)'; errEl.style.display='block'; return; }
+    errEl.style.display = 'none';
+
+    try {
+      const card = { name, closing_day: closing, due_day: due, limit_amount: limit, color };
+      const newId = await ZDB.addCreditCard(card);
+      card.id = newId;
+      ZApp.state.data.creditCards = [...(ZApp.state.data.creditCards || []), card];
+      ZApp.closeModal();
+      ZApp.navigate('cards');
+    } catch(e) {
+      errEl.textContent = e.message; errEl.style.display = 'block';
+    }
+  }
+
   return {
     render, close,
     setTxType, selectCat,
@@ -1125,7 +1215,8 @@ const ZModals = (function() {
     formatAiResponse,
     selectGoalEmoji, selectGoalColor,
     saveGoal, saveContribution,
-    finishOnboarding
+    finishOnboarding,
+    selectCardColor, saveCard
   };
 
 })();

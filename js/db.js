@@ -124,12 +124,13 @@ const ZDB = (function() {
   async function loadAll(currentMonth) {
     await _loadCats();
 
-    const [monthData, assets, debts, futureItems, goals] = await Promise.all([
+    const [monthData, assets, debts, futureItems, goals, creditCards] = await Promise.all([
       loadMonth(currentMonth),
       loadAssets(),
       loadDebts(),
       loadFutureItems(),
-      loadGoals()
+      loadGoals(),
+      loadCreditCards()
     ]);
 
     return {
@@ -138,6 +139,7 @@ const ZDB = (function() {
       debts,
       futureItems,
       goals,
+      creditCards,
       categories: {
         incomes: _catList('income'),
         expenses: _catList('expense')
@@ -341,6 +343,57 @@ const ZDB = (function() {
   }
 
   /* ================================================
+     CREDIT CARDS (CARTÕES DE CRÉDITO)
+     ================================================ */
+  async function loadCreditCards() {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+    const { data } = await _sb.from('credit_cards').select('*').eq('user_id', uid).order('created_at');
+    return (data || []).map(c => ({
+      id: c.id, name: c.name,
+      closing_day: c.closing_day, due_day: c.due_day,
+      limit_amount: c.limit_amount ? parseFloat(c.limit_amount) : null,
+      color: c.color || '#0F0F0F'
+    }));
+  }
+
+  async function addCreditCard(card) {
+    const uid = ZAuth.getUser()?.id;
+    const { data, error } = await _sb.from('credit_cards').insert({
+      user_id: uid, name: card.name,
+      closing_day: card.closing_day, due_day: card.due_day,
+      limit_amount: card.limit_amount || null,
+      color: card.color || '#0F0F0F'
+    }).select('id').single();
+    if (error) throw new Error('Erro ao salvar cartão: ' + error.message);
+    return data.id;
+  }
+
+  async function deleteCreditCard(id) {
+    const uid = ZAuth.getUser()?.id;
+    const { error } = await _sb.from('credit_cards').delete().eq('id', id).eq('user_id', uid);
+    if (error) throw new Error('Erro ao excluir cartão: ' + error.message);
+  }
+
+  async function loadCardTransactions(months = 3) {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+    const now = new Date();
+    const startMonth = `${now.getFullYear()}-${String(now.getMonth() - months + 2).padStart(2,'0')}`;
+    const { data } = await _sb.from('transactions')
+      .select('*, categories(name)')
+      .eq('user_id', uid).eq('type', 'expense')
+      .gte('year_month', startMonth)
+      .order('date', { ascending: false });
+    return (data || []).map(t => ({
+      id: t.id, date: t.date, description: t.description,
+      amount: parseFloat(t.amount), type: t.type,
+      category: t.categories?.name || 'Outros',
+      account: t.account_name || ''
+    }));
+  }
+
+  /* ================================================
      HISTÓRICO DE GASTOS POR CATEGORIA (últimos N meses)
      ================================================ */
   async function loadCategoryHistory(numMonths) {
@@ -398,6 +451,7 @@ const ZDB = (function() {
     addDebt, deleteDebt,
     addFutureItem, deleteFutureItem,
     loadGoals, addGoal, updateGoal, deleteGoal,
+    loadCreditCards, addCreditCard, deleteCreditCard, loadCardTransactions,
     loadCategoryHistory
   };
 
