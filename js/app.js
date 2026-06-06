@@ -11,7 +11,8 @@ const ZApp = (function() {
     data: null,
     modal: null,
     modalParams: null,
-    mobileSidebarOpen: false
+    mobileSidebarOpen: false,
+    mobileMenuOpen: false
   };
 
   /* ---------- Detectar tamanho de tela ---------- */
@@ -139,6 +140,7 @@ const ZApp = (function() {
     state.modal = null;
     state.modalParams = null;
     state.mobileSidebarOpen = false;
+    state.mobileMenuOpen = false;
 
     // Carrega histórico de categorias ao entrar em Análise
     if (screen === 'comparison' && !state.data.categoryHistory) {
@@ -355,6 +357,68 @@ const ZApp = (function() {
           ${renderScreenContent()}
         </div>
         ${renderBottomNav()}
+        ${state.mobileMenuOpen ? renderMobileMenuDrawer() : ''}
+      </div>
+    `;
+  }
+
+  function toggleMobileMenu() {
+    state.mobileMenuOpen = !state.mobileMenuOpen;
+    render();
+  }
+
+  function renderMobileMenuDrawer() {
+    const s = state.screen;
+    const budgetAlerts = _getBudgetAlerts(state.data, state.month);
+
+    const groups = [
+      {
+        label: 'Principal',
+        items: [
+          { id: 'transactions', label: 'Transações',   icon: iTransactions() },
+          { id: 'comparison',   label: 'Análise',      icon: iAnalysis() },
+        ]
+      },
+      {
+        label: 'Planejamento',
+        items: [
+          { id: 'goals',     label: 'Metas',        icon: iGoals() },
+          { id: 'cards',     label: 'Cartões',      icon: iCards() },
+          { id: 'cashflow',  label: 'Fluxo Futuro', icon: iCashflow() },
+          { id: 'patrimony', label: 'Patrimônio',   icon: iPatrimony() },
+        ]
+      },
+      {
+        label: 'Sistema',
+        items: [
+          { id: 'settings', label: 'Configurações', icon: iSettings() },
+        ]
+      }
+    ];
+
+    return `
+      <div class="mobile-menu-backdrop" onclick="ZApp.toggleMobileMenu()"></div>
+      <div class="mobile-menu-drawer">
+        <div class="mmd-handle"></div>
+        <div class="mmd-header">
+          <span class="mmd-title">Menu</span>
+          <button class="mmd-close" onclick="ZApp.toggleMobileMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="mmd-body">
+          ${groups.map(group => `
+            <div class="mmd-group-label">${group.label}</div>
+            ${group.items.map(item => `
+              <button class="mmd-item ${s === item.id ? 'active' : ''}" onclick="ZApp.navigate('${item.id}')">
+                <span class="mmd-item-icon">${item.icon}</span>
+                <span class="mmd-item-label">${item.label}</span>
+                ${item.id === 'budget' && budgetAlerts > 0 ? `<span class="mmd-badge">${budgetAlerts}</span>` : ''}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" style="color:var(--text-muted); margin-left:auto"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            `).join('')}
+          `).join('')}
+        </div>
       </div>
     `;
   }
@@ -389,23 +453,31 @@ const ZApp = (function() {
   function renderBottomNav() {
     const s = state.screen;
     const budgetAlerts = _getBudgetAlerts(state.data, state.month);
-    const items = [
-      { id: 'dashboard',    icon: iDashboard(),    label: 'Início' },
-      { id: 'budget',       icon: iBudget(),        label: 'Orçamento', alert: budgetAlerts },
-      { id: '_add_',        center: true },
-      { id: 'goals',        icon: iGoals(),         label: 'Metas' },
-      { id: 'patrimony',    icon: iPatrimony(),     label: 'Patrimônio' },
-    ];
+    const menuScreens = ['transactions','comparison','goals','cards','cashflow','patrimony','settings'];
+    const menuActive = menuScreens.includes(s);
+
     return `
       <nav class="bottom-nav">
-        ${items.map(item => {
-          if (item.center) return `<button class="nav-center-btn" onclick="ZApp.openModal('addTransaction', {month:'${state.month}'})">${iPlus()}</button>`;
-          return `<button class="nav-item ${s === item.id ? 'active' : ''}" onclick="ZApp.navigate('${item.id}')" style="position:relative">
-            ${item.icon}
-            <span>${item.label}</span>
-            ${item.alert > 0 ? `<span style="position:absolute; top:4px; right:8px; background:var(--danger); color:white; font-size:9px; font-weight:700; border-radius:8px; padding:1px 5px; min-width:16px; text-align:center">${item.alert}</span>` : ''}
-          </button>`;
-        }).join('')}
+        <button class="nav-item ${s === 'dashboard' ? 'active' : ''}" onclick="ZApp.navigate('dashboard')">
+          ${iDashboard()}
+          <span>Início</span>
+        </button>
+        <button class="nav-item ${s === 'budget' ? 'active' : ''}" onclick="ZApp.navigate('budget')" style="position:relative">
+          ${iBudget()}
+          <span>Orçamento</span>
+          ${budgetAlerts > 0 ? `<span style="position:absolute;top:4px;right:8px;background:var(--danger);color:white;font-size:9px;font-weight:700;border-radius:8px;padding:1px 5px;min-width:16px;text-align:center">${budgetAlerts}</span>` : ''}
+        </button>
+        <button class="nav-center-btn" onclick="ZApp.openModal('addTransaction', {month:'${state.month}'})">
+          ${iPlus()}
+        </button>
+        <button class="nav-item ${s === 'transactions' ? 'active' : ''}" onclick="ZApp.navigate('transactions')">
+          ${iTransactions()}
+          <span>Lançamentos</span>
+        </button>
+        <button class="nav-item ${menuActive && s !== 'transactions' ? 'active' : ''}" onclick="ZApp.toggleMobileMenu()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span>Menu</span>
+        </button>
       </nav>
     `;
   }
@@ -524,7 +596,7 @@ const ZApp = (function() {
   return {
     state, init, render, navigate, changeMonth,
     openModal, closeModal, openEditTx, isDesktop,
-    confirmRecurring
+    confirmRecurring, toggleMobileMenu
   };
 
 })();

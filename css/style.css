@@ -1666,3 +1666,115 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ================================================
+   Mobile Menu Drawer (sanduíche)
+   ================================================ */
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+.mobile-menu-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  z-index: 201;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: slideUp 0.25s cubic-bezier(.32,1,.23,1);
+  max-height: 82vh;
+  overflow-y: auto;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.mmd-handle {
+  width: 36px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+.mmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+}
+.mmd-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.mmd-close {
+  background: var(--bg);
+  border: none;
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.mmd-body {
+  padding: 8px 16px 24px;
+}
+.mmd-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  padding: 14px 8px 6px;
+}
+.mmd-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 13px 12px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+.mmd-item:hover, .mmd-item:active {
+  background: var(--bg);
+}
+.mmd-item.active {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+.mmd-item.active .mmd-item-icon svg {
+  stroke: var(--primary);
+}
+.mmd-item-icon {
+  width: 36px; height: 36px;
+  background: var(--bg);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mmd-item-icon svg { width: 18px; height: 18px; }
+.mmd-item-label { flex: 1; text-align: left; }
+.mmd-badge {
+  background: var(--danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+}
