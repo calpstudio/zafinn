@@ -941,8 +941,10 @@ const ZModals = (function() {
       }
     }
 
+    const detectedMonth = ZImport.detectMonth(_importedTxs);
     close();
-    ZApp.render();
+    ZApp.state.month = detectedMonth;
+    ZApp.navigate('transactions');
     setTimeout(() => {
       alert(`✅ ${saved} lançamentos importados com sucesso!${errors > 0 ? `\n⚠️ ${errors} falharam.` : ''}`);
     }, 300);
