@@ -84,11 +84,42 @@ const ZModals = (function() {
           </div>
         </div>
 
-        <!-- Conta -->
+        <!-- Conta / Cartão -->
         <div class="form-group">
-          <label class="form-label">Conta / Cartão (opcional)</label>
-          <input type="text" class="form-input" id="tx-account" placeholder="Ex: Nubank, Banco, Dinheiro..."
-            value="${tx ? (tx.account || '') : ''}">
+          <label class="form-label">Conta / Cartão</label>
+          ${(function() {
+            const cards = ZApp.state.data.creditCards || [];
+            const currentAccount = tx ? (tx.account || '') : '';
+            const isCard = cards.some(c => c.name === currentAccount);
+            const isOther = currentAccount && !isCard;
+
+            if (cards.length === 0) {
+              return `<input type="text" class="form-input" id="tx-account" placeholder="Ex: Nubank, Dinheiro, PIX..." value="${currentAccount}">
+              <div style="font-size:11px; color:var(--text-muted); margin-top:6px">
+                💡 Cadastre seus cartões em <strong>Planejamento → Cartões</strong> para selecioná-los aqui
+              </div>`;
+            }
+
+            return `
+              <input type="hidden" id="tx-account" value="${currentAccount}">
+              <div class="account-picker" id="tx-account-picker">
+                ${cards.map(c => `
+                  <button type="button" class="acc-chip ${c.name === currentAccount ? 'selected' : ''}"
+                    onclick="ZModals.selectTxAccount('${c.name.replace(/'/g, "\\'")}', this)"
+                    style="--acc-color:${c.color}">
+                    <span class="acc-dot" style="background:${c.color}"></span>${c.name}
+                  </button>
+                `).join('')}
+                <button type="button" class="acc-chip ${isOther ? 'selected' : ''}" id="acc-chip-other"
+                  onclick="ZModals.showOtherAccount(this)">Outra conta</button>
+              </div>
+              <input type="text" class="form-input" id="tx-account-other"
+                style="display:${isOther ? 'block' : 'none'}; margin-top:8px"
+                placeholder="Ex: Banco, Dinheiro, PIX..."
+                value="${isOther ? currentAccount : ''}"
+                oninput="document.getElementById('tx-account').value=this.value">
+            `;
+          })()}
         </div>
 
         <!-- Observação -->
@@ -150,6 +181,22 @@ const ZModals = (function() {
     }
   }
 
+  function selectTxAccount(name, btn) {
+    document.querySelectorAll('#tx-account-picker .acc-chip').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('tx-account').value = name;
+    const otherInput = document.getElementById('tx-account-other');
+    if (otherInput) otherInput.style.display = 'none';
+  }
+
+  function showOtherAccount(btn) {
+    document.querySelectorAll('#tx-account-picker .acc-chip').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('tx-account').value = '';
+    const otherInput = document.getElementById('tx-account-other');
+    if (otherInput) { otherInput.style.display = 'block'; otherInput.focus(); }
+  }
+
   let currentTxType = 'expense';
 
   function setTxType(type) {
@@ -184,7 +231,10 @@ const ZModals = (function() {
     const amount = parseFloat(document.getElementById('tx-amount').value);
     const desc = document.getElementById('tx-desc').value.trim();
     const date = document.getElementById('tx-date').value;
-    const account = document.getElementById('tx-account').value.trim();
+    const otherInput = document.getElementById('tx-account-other');
+    const account = (otherInput && otherInput.style.display !== 'none')
+      ? otherInput.value.trim()
+      : document.getElementById('tx-account').value.trim();
     const notes = document.getElementById('tx-notes').value.trim();
     const selectedCat = document.querySelector('.cat-chip.selected')?.dataset?.cat || '';
     const type = document.querySelector('#tx-type-selector .seg-btn.active')?.classList.contains('income') ? 'income' : 'expense';
@@ -267,12 +317,35 @@ const ZModals = (function() {
 
   async function deleteTx(id) {
     if (!confirm('Excluir esta transação?')) return;
+
+    const month = ZApp.state.month;
+    const tx = (ZApp.state.data.months[month]?.transactions || []).find(t => t.id === id);
+
+    // Verificar se existe um template recorrente associado
+    const baseDesc = tx?.description.replace(/ \d+\/\d+$/, '').trim();
+    const matchingTemplate = (ZApp.state.data.recurringTemplates || []).find(t =>
+      t.is_active && t.description === baseDesc && t.type === tx?.type
+    );
+
+    let deleteTemplate = false;
+    if (matchingTemplate) {
+      const kindLabel = matchingTemplate.kind === 'recurring' ? 'recorrente' : 'parcelamento';
+      deleteTemplate = confirm(
+        `Esta transação faz parte de um ${kindLabel} ativo.\nDeseja cancelar também os próximos lançamentos automáticos de "${matchingTemplate.description}"?`
+      );
+    }
+
     try {
       await ZDB.deleteTransaction(id);
-      const month = ZApp.state.month;
       if (ZApp.state.data.months[month]) {
         ZApp.state.data.months[month].transactions = ZApp.state.data.months[month].transactions.filter(t => t.id !== id);
       }
+
+      if (deleteTemplate && matchingTemplate) {
+        await ZDB.deleteRecurringTemplate(matchingTemplate.id);
+        ZApp.state.data.recurringTemplates = (ZApp.state.data.recurringTemplates || []).filter(t => t.id !== matchingTemplate.id);
+      }
+
       close();
       ZApp.render();
     } catch(e) {
@@ -1288,6 +1361,7 @@ const ZModals = (function() {
   return {
     render, close,
     setTxType, setTxMode, selectCat,
+    selectTxAccount, showOtherAccount,
     saveTx, deleteTx,
     saveBudgetItem,
     saveAsset,

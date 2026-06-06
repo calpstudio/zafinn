@@ -1626,3 +1626,43 @@ body {
     margin: 0 0 16px;
   }
 }
+
+/* ================================================
+   Account Picker (seletor de conta/cartão)
+   ================================================ */
+.account-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.acc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.acc-chip:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.acc-chip.selected {
+  border-color: var(--acc-color, var(--primary));
+  background: color-mix(in srgb, var(--acc-color, var(--primary)) 12%, transparent);
+  color: var(--text);
+  font-weight: 700;
+}
+.acc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
