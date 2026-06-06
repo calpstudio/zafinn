@@ -95,6 +95,9 @@ const ZCashflow = (function() {
           </div>`}
         </div>
 
+        <!-- Recorrentes e Parcelamentos -->
+        ${_renderRecurringSection(state)}
+
         <!-- Itens cadastrados lado a lado -->
         <div class="equal-row">
 
@@ -181,6 +184,66 @@ const ZCashflow = (function() {
           </div>
         </div>
 
+      </div>
+    `;
+  }
+
+  /* ================================================
+     SEÇÃO: RECORRENTES E PARCELAMENTOS
+     ================================================ */
+  function _renderRecurringSection(state) {
+    const templates = (state.data.recurringTemplates || []).filter(t => t.is_active);
+    if (templates.length === 0) return '';
+
+    function _fmt(v) {
+      return 'R$ ' + (v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    return `
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>Recorrentes e Parcelamentos</h3>
+          <span class="badge badge-neutral">${templates.length} ativo${templates.length > 1 ? 's' : ''}</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Tipo</th>
+              <th>Valor/mês</th>
+              <th>Parcelas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${templates.map(t => {
+              const kindLabel = t.kind === 'recurring' ? 'Recorrente' : 'Parcelado';
+              const kindColor = t.kind === 'recurring' ? 'var(--primary)' : 'var(--purple, #8B5CF6)';
+              const installInfo = t.kind === 'installment'
+                ? `${t.total_installments}x a partir de ${t.start_month}`
+                : 'Todo mês';
+              return `
+              <tr>
+                <td>
+                  <div style="font-weight:600">${t.description}</div>
+                  <div style="font-size:11px; color:var(--text-muted)">${t.category}${t.account ? ' · ' + t.account : ''}</div>
+                </td>
+                <td>
+                  <span style="font-size:11px; font-weight:700; color:${kindColor}; background:${kindColor}18; padding:2px 8px; border-radius:20px">${kindLabel}</span>
+                </td>
+                <td style="font-weight:700; color:${t.type === 'income' ? 'var(--success)' : 'var(--danger)'}">
+                  ${t.type === 'income' ? '+' : '-'}${_fmt(t.amount)}
+                </td>
+                <td style="font-size:12px; color:var(--text-muted)">${installInfo}</td>
+                <td>
+                  <button class="btn-icon" onclick="ZCashflow.deleteRecurring('${t.id}')" title="Remover">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+                  </button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     `;
   }
@@ -283,6 +346,15 @@ const ZCashflow = (function() {
     } catch(e) { alert(e.message); }
   }
 
-  return { render, deleteItem };
+  async function deleteRecurring(id) {
+    if (!confirm('Remover este lançamento recorrente? Os lançamentos já feitos não serão apagados.')) return;
+    try {
+      await ZDB.deleteRecurringTemplate(id);
+      ZApp.state.data.recurringTemplates = (ZApp.state.data.recurringTemplates || []).filter(t => t.id !== id);
+      ZApp.render();
+    } catch(e) { alert(e.message); }
+  }
+
+  return { render, deleteItem, deleteRecurring };
 
 })();

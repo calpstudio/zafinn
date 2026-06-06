@@ -124,13 +124,14 @@ const ZDB = (function() {
   async function loadAll(currentMonth) {
     await _loadCats();
 
-    const [monthData, assets, debts, futureItems, goals, creditCards] = await Promise.all([
+    const [monthData, assets, debts, futureItems, goals, creditCards, recurringTemplates] = await Promise.all([
       loadMonth(currentMonth),
       loadAssets(),
       loadDebts(),
       loadFutureItems(),
       loadGoals(),
-      loadCreditCards()
+      loadCreditCards(),
+      loadRecurringTemplates()
     ]);
 
     return {
@@ -140,6 +141,7 @@ const ZDB = (function() {
       futureItems,
       goals,
       creditCards,
+      recurringTemplates,
       categories: {
         incomes: _catList('income'),
         expenses: _catList('expense')
@@ -394,6 +396,68 @@ const ZDB = (function() {
   }
 
   /* ================================================
+     RECURRING TEMPLATES (RECORRENTES E PARCELAMENTOS)
+     ================================================ */
+  async function loadRecurringTemplates() {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+    const { data } = await _sb.from('recurring_templates')
+      .select('*, categories(name)')
+      .eq('user_id', uid)
+      .eq('is_active', true)
+      .order('created_at');
+    return (data || []).map(r => ({
+      id: r.id,
+      description: r.description,
+      amount: parseFloat(r.amount),
+      type: r.type,
+      category: r.categories?.name || 'Outros',
+      account: r.account_name || '',
+      day_of_month: r.day_of_month || 1,
+      kind: r.kind,
+      total_installments: r.total_installments,
+      start_month: r.start_month,
+      last_created_month: r.last_created_month,
+      is_active: r.is_active
+    }));
+  }
+
+  async function addRecurringTemplate(tmpl) {
+    const uid = ZAuth.getUser()?.id;
+    const { data, error } = await _sb.from('recurring_templates').insert({
+      user_id: uid,
+      description: tmpl.description,
+      amount: tmpl.amount,
+      type: tmpl.type,
+      category_id: _catId(tmpl.category) || null,
+      account_name: tmpl.account || null,
+      day_of_month: tmpl.day_of_month || 1,
+      kind: tmpl.kind,
+      total_installments: tmpl.total_installments || null,
+      start_month: tmpl.start_month,
+      last_created_month: tmpl.start_month,
+      is_active: true
+    }).select('id').single();
+    if (error) throw new Error('Erro ao salvar template: ' + error.message);
+    return data.id;
+  }
+
+  async function updateRecurringTemplate(id, updates) {
+    const uid = ZAuth.getUser()?.id;
+    const { error } = await _sb.from('recurring_templates')
+      .update(updates)
+      .eq('id', id).eq('user_id', uid);
+    if (error) throw new Error('Erro ao atualizar template: ' + error.message);
+  }
+
+  async function deleteRecurringTemplate(id) {
+    const uid = ZAuth.getUser()?.id;
+    const { error } = await _sb.from('recurring_templates')
+      .delete().eq('id', id).eq('user_id', uid);
+    if (error) throw new Error('Erro ao excluir template: ' + error.message);
+  }
+
+  /* ================================================
      HISTÓRICO DE GASTOS POR CATEGORIA (últimos N meses)
      ================================================ */
   async function loadCategoryHistory(numMonths) {
@@ -452,6 +516,7 @@ const ZDB = (function() {
     addFutureItem, deleteFutureItem,
     loadGoals, addGoal, updateGoal, deleteGoal,
     loadCreditCards, addCreditCard, deleteCreditCard, loadCardTransactions,
+    loadRecurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
     loadCategoryHistory
   };
 

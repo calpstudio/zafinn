@@ -188,6 +188,13 @@ const ZUtils = (function() {
   function getFutureProjections(data, fromMonth, count) {
     const projections = [];
     let current = fromMonth;
+
+    function _mdiff(from, to) {
+      const [fy, fm] = from.split('-').map(Number);
+      const [ty, tm] = to.split('-').map(Number);
+      return (ty - fy) * 12 + (tm - fm);
+    }
+
     for (let i = 0; i < count; i++) {
       current = nextMonth(current);
       const [y, m] = current.split('-').map(Number);
@@ -204,6 +211,19 @@ const ZUtils = (function() {
           if (f.type === 'income') income += f.installmentValue;
           else expense += f.installmentValue;
         }
+      });
+
+      // Incluir templates recorrentes não confirmados ainda
+      (data.recurringTemplates || []).forEach(t => {
+        if (!t.is_active) return;
+        if (current < t.start_month) return;
+        if (current <= t.last_created_month) return; // já confirmado, consta como tx real
+        if (t.kind === 'installment') {
+          const installNum = _mdiff(t.start_month, current) + 1;
+          if (installNum > t.total_installments) return;
+        }
+        if (t.type === 'income') income += t.amount;
+        else expense += t.amount;
       });
 
       projections.push({ month: current, name: getMonthName(current), income, expense, balance: income - expense });

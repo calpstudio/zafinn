@@ -97,6 +97,24 @@ const ZModals = (function() {
           <input type="text" class="form-input" id="tx-notes" placeholder="Anotação livre..."
             value="${tx ? (tx.notes || '') : ''}">
         </div>
+
+        <!-- Recorrência (apenas novo lançamento) -->
+        ${!isEdit ? `
+        <div class="form-group">
+          <label class="form-label">Recorrência</label>
+          <input type="hidden" id="tx-mode-input" value="normal">
+          <div class="segmented" id="tx-mode-selector">
+            <button class="seg-btn active" onclick="ZModals.setTxMode('normal', this)">Pontual</button>
+            <button class="seg-btn" onclick="ZModals.setTxMode('recurring', this)">Recorrente</button>
+            <button class="seg-btn" onclick="ZModals.setTxMode('installment', this)">Parcelado</button>
+          </div>
+          <div id="tx-installment-extra" style="display:none; margin-top:10px">
+            <label class="form-label">Número de parcelas</label>
+            <input type="number" class="form-input" id="tx-installments" placeholder="Ex: 12" min="2" max="360" inputmode="numeric">
+          </div>
+          <div id="tx-mode-hint" style="display:none; margin-top:8px; font-size:12px; color:var(--text-muted); line-height:1.5"></div>
+        </div>
+        ` : ''}
       </div>
       <div class="modal-footer">
         ${isEdit ? `<button class="btn btn-danger" onclick="ZModals.deleteTx('${tx.id}')">Excluir</button>` : ''}
@@ -109,6 +127,27 @@ const ZModals = (function() {
 
   function renderEditTransaction(params) {
     return renderAddTransaction(params);
+  }
+
+  function setTxMode(mode, btn) {
+    document.querySelectorAll('#tx-mode-selector .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const input = document.getElementById('tx-mode-input');
+    if (input) input.value = mode;
+    const extra = document.getElementById('tx-installment-extra');
+    if (extra) extra.style.display = mode === 'installment' ? 'block' : 'none';
+    const hint = document.getElementById('tx-mode-hint');
+    if (hint) {
+      if (mode === 'recurring') {
+        hint.textContent = 'Esta despesa será lançada automaticamente todo mês a partir de agora.';
+        hint.style.display = 'block';
+      } else if (mode === 'installment') {
+        hint.textContent = 'O valor informado é o valor de cada parcela. Informe em quantas vezes foi parcelado.';
+        hint.style.display = 'block';
+      } else {
+        hint.style.display = 'none';
+      }
+    }
   }
 
   let currentTxType = 'expense';
@@ -149,11 +188,18 @@ const ZModals = (function() {
     const notes = document.getElementById('tx-notes').value.trim();
     const selectedCat = document.querySelector('.cat-chip.selected')?.dataset?.cat || '';
     const type = document.querySelector('#tx-type-selector .seg-btn.active')?.classList.contains('income') ? 'income' : 'expense';
+    const mode = document.getElementById('tx-mode-input')?.value || 'normal';
 
     if (!amount || amount <= 0) { alert('Informe o valor da transação'); return; }
     if (!desc) { alert('Informe a descrição'); return; }
     if (!date) { alert('Informe a data'); return; }
     if (!selectedCat) { alert('Selecione uma categoria'); return; }
+
+    let installments = null;
+    if (!editId && mode === 'installment') {
+      installments = parseInt(document.getElementById('tx-installments')?.value);
+      if (!installments || installments < 2) { alert('Informe o número de parcelas (mínimo 2)'); return; }
+    }
 
     const btn = document.querySelector('.modal-footer .btn-primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
@@ -168,10 +214,28 @@ const ZModals = (function() {
         const idx = txs.findIndex(t => t.id === editId);
         if (idx >= 0) txs[idx] = tx;
       } else {
-        const newTx = { id: ZUtils.generateId(), date, description: desc, amount, type, category: selectedCat, account, notes };
+        const txDesc = mode === 'installment' ? `${desc} 1/${installments}` : desc;
+        const newTx = { id: ZUtils.generateId(), date, description: txDesc, amount, type, category: selectedCat, account, notes };
         await ZDB.addTransaction(month, newTx);
         if (!ZApp.state.data.months[month]) ZApp.state.data.months[month] = { transactions: [], budget: { incomes: [], expenses: [] } };
         ZApp.state.data.months[month].transactions.unshift(newTx);
+
+        if (mode === 'recurring' || mode === 'installment') {
+          const dayNum = Math.min(parseInt(date.split('-')[2]) || 1, 28);
+          const template = {
+            description: desc,
+            amount, type,
+            category: selectedCat,
+            account,
+            day_of_month: dayNum,
+            kind: mode === 'recurring' ? 'recurring' : 'installment',
+            total_installments: installments,
+            start_month: month
+          };
+          const tmplId = await ZDB.addRecurringTemplate(template);
+          const newTmpl = { id: tmplId, ...template, last_created_month: month, is_active: true };
+          ZApp.state.data.recurringTemplates = [...(ZApp.state.data.recurringTemplates || []), newTmpl];
+        }
       }
       close();
       ZApp.render();
@@ -1203,7 +1267,7 @@ const ZModals = (function() {
 
   return {
     render, close,
-    setTxType, selectCat,
+    setTxType, setTxMode, selectCat,
     saveTx, deleteTx,
     saveBudgetItem,
     saveAsset,

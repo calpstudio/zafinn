@@ -17,6 +17,79 @@ const ZApp = (function() {
   /* ---------- Detectar tamanho de tela ---------- */
   function isDesktop() { return window.innerWidth >= 1024; }
 
+  /* ---------- Calcular diferença em meses ---------- */
+  function _mdiff(from, to) {
+    const [fy, fm] = from.split('-').map(Number);
+    const [ty, tm] = to.split('-').map(Number);
+    return (ty - fy) * 12 + (tm - fm);
+  }
+
+  /* ---------- Templates recorrentes pendentes para um mês ---------- */
+  function _getPendingTemplates(templates, month) {
+    return (templates || []).filter(t => {
+      if (!t.is_active) return false;
+      if (month < t.start_month) return false;
+      if (t.last_created_month >= month) return false;
+      if (t.kind === 'installment') {
+        const installNum = _mdiff(t.start_month, month) + 1;
+        return installNum <= t.total_installments;
+      }
+      return true;
+    });
+  }
+
+  /* ---------- Confirmar lançamentos recorrentes do mês atual ---------- */
+  async function confirmRecurring() {
+    const month = state.month;
+    const pending = _getPendingTemplates(state.data.recurringTemplates || [], month);
+    if (pending.length === 0) return;
+
+    const btn = document.getElementById('btn-confirm-recurring');
+    if (btn) { btn.disabled = true; btn.textContent = 'Confirmando...'; }
+
+    try {
+      for (const tmpl of pending) {
+        const [y, m] = month.split('-').map(Number);
+        const maxDay = new Date(y, m, 0).getDate();
+        const day = Math.min(tmpl.day_of_month, maxDay);
+        const date = `${month}-${String(day).padStart(2, '0')}`;
+
+        let txDesc = tmpl.description;
+        let isFinished = false;
+        if (tmpl.kind === 'installment') {
+          const installNum = _mdiff(tmpl.start_month, month) + 1;
+          txDesc = `${tmpl.description} ${installNum}/${tmpl.total_installments}`;
+          isFinished = installNum >= tmpl.total_installments;
+        }
+
+        const newTx = {
+          id: ZUtils.generateId(), date, description: txDesc,
+          amount: tmpl.amount, type: tmpl.type,
+          category: tmpl.category, account: tmpl.account || '', notes: ''
+        };
+
+        await ZDB.addTransaction(month, newTx);
+        if (!state.data.months[month]) state.data.months[month] = { transactions: [], budget: { incomes: [], expenses: [] } };
+        state.data.months[month].transactions.unshift(newTx);
+
+        await ZDB.updateRecurringTemplate(tmpl.id, {
+          last_created_month: month,
+          is_active: !isFinished
+        });
+
+        const idx = (state.data.recurringTemplates || []).findIndex(t => t.id === tmpl.id);
+        if (idx >= 0) {
+          state.data.recurringTemplates[idx].last_created_month = month;
+          if (isFinished) state.data.recurringTemplates[idx].is_active = false;
+        }
+      }
+      render();
+    } catch(e) {
+      alert(e.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Confirmar'; }
+    }
+  }
+
   /* ---------- Contar categorias acima do orçamento ---------- */
   function _getBudgetAlerts(data, month) {
     const monthData = data?.months?.[month];
@@ -339,20 +412,35 @@ const ZApp = (function() {
 
   /* ---------- Conteúdo da tela atual ---------- */
   function renderScreenContent() {
+    const pending = _getPendingTemplates(state.data.recurringTemplates || [], state.month);
+    const banner = (pending.length > 0 && !state.screen.startsWith('cs_') && state.screen !== 'settings') ? `
+      <div class="recurring-banner">
+        <div class="recurring-banner-left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" style="color:var(--primary); flex-shrink:0"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 8v4l3 3"/></svg>
+          <span><strong>${pending.length} lançamento${pending.length > 1 ? 's' : ''} recorrente${pending.length > 1 ? 's' : ''}</strong> pendente${pending.length > 1 ? 's' : ''} em ${ZUtils.getMonthName(state.month)}</span>
+        </div>
+        <button class="btn btn-primary" id="btn-confirm-recurring" onclick="ZApp.confirmRecurring()" style="padding:7px 16px; font-size:12px; white-space:nowrap">
+          Lançar todos
+        </button>
+      </div>
+    ` : '';
+
+    let content;
     switch(state.screen) {
-      case 'dashboard':    return ZDashboard.render(state);
-      case 'budget':       return ZBudget.render(state);
-      case 'transactions': return ZTransactions.render(state);
-      case 'comparison':   return ZComparison.render(state);
-      case 'patrimony':    return ZPatrimony.render(state);
-      case 'cashflow':     return ZCashflow.render(state);
-      case 'goals':        return ZGoals.render(state);
-      case 'cards':        return ZCards.render(state);
-      case 'settings':     return ZSettings.render(state);
+      case 'dashboard':    content = ZDashboard.render(state); break;
+      case 'budget':       content = ZBudget.render(state); break;
+      case 'transactions': content = ZTransactions.render(state); break;
+      case 'comparison':   content = ZComparison.render(state); break;
+      case 'patrimony':    content = ZPatrimony.render(state); break;
+      case 'cashflow':     content = ZCashflow.render(state); break;
+      case 'goals':        content = ZGoals.render(state); break;
+      case 'cards':        content = ZCards.render(state); break;
+      case 'settings':     content = ZSettings.render(state); break;
       default:
-        if (state.screen.startsWith('cs_')) return renderComingSoon(state.screen);
-        return ZDashboard.render(state);
+        if (state.screen.startsWith('cs_')) content = renderComingSoon(state.screen);
+        else content = ZDashboard.render(state);
     }
+    return banner + content;
   }
 
   function renderComingSoon(screen) {
@@ -435,7 +523,8 @@ const ZApp = (function() {
 
   return {
     state, init, render, navigate, changeMonth,
-    openModal, closeModal, openEditTx, isDesktop
+    openModal, closeModal, openEditTx, isDesktop,
+    confirmRecurring
   };
 
 })();
