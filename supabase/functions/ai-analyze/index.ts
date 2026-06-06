@@ -27,7 +27,6 @@ serve(async (req: Request) => {
     let messages;
 
     if (fileBase64 && mimeType) {
-      // Requisição com arquivo (PDF ou imagem)
       const isImage = mimeType.startsWith("image/");
 
       const fileBlock = isImage
@@ -39,20 +38,26 @@ serve(async (req: Request) => {
         content: [fileBlock, { type: "text", text: prompt }],
       }];
     } else {
-      // Requisição somente texto
       messages = [{ role: "user", content: prompt }];
+    }
+
+    // Header beta obrigatório para PDFs
+    const isPdf = fileBase64 && mimeType === "application/pdf";
+    const anthropicHeaders: Record<string, string> = {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    };
+    if (isPdf) {
+      anthropicHeaders["anthropic-beta"] = "pdfs-2024-09-25";
     }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
+      headers: anthropicHeaders,
       body: JSON.stringify({
         model: model || "claude-haiku-4-5-20251001",
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages,
       }),
     });

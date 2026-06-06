@@ -169,14 +169,29 @@ Regras importantes:
 
     const text = data?.content?.[0]?.text || '';
 
-    try {
-      const clean = text.replace(/```json\n?|\n?```/g, '').trim();
-      const parsed = JSON.parse(clean);
-      return parsed.transactions || [];
-    } catch(e) {
-      console.warn('Resposta IA:', text);
+    // Extrair JSON da resposta de forma robusta
+    const parsed = _extractJSON(text);
+    if (!parsed) {
+      console.warn('Resposta IA bruta:', text);
       throw new Error('Não foi possível interpretar a resposta. Tente novamente ou use CSV.');
     }
+    return parsed.transactions || [];
+  }
+
+  function _extractJSON(text) {
+    if (!text) return null;
+    // 1. Parse direto
+    try { return JSON.parse(text.trim()); } catch {}
+    // 2. Remove blocos markdown
+    const stripped = text.replace(/```(?:json)?\n?|\n?```/g, '').trim();
+    try { return JSON.parse(stripped); } catch {}
+    // 3. Encontra a primeira { até a última } no texto
+    const start = text.indexOf('{');
+    const end   = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+    }
+    return null;
   }
 
   return { getKey, setKey, hasKey, analyzeMonth, categorize, extractFromFile };
