@@ -151,8 +151,8 @@ const ZApp = (function() {
       }).catch(() => { state.data.categoryHistory = null; });
     }
 
-    // Carrega transações dos últimos 3 meses ao entrar em Cartões
-    if (screen === 'cards' && !state.data.cardTransactions) {
+    // Carrega (ou recarrega) transações dos últimos 3 meses ao entrar em Cartões
+    if (screen === 'cards') {
       ZDB.loadCardTransactions(3).then(txs => {
         state.data.cardTransactions = txs;
         if (state.screen === 'cards') render();
