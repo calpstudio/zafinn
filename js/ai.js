@@ -141,20 +141,27 @@ Responda APENAS com um JSON válido no formato:
 
     const prompt = `Você é um especialista em extratos bancários e faturas de cartão de crédito brasileiros.
 
-Analise este documento e extraia TODAS as transações listadas.
+Analise este documento e extraia as transações REALIZADAS no período da fatura.
 
 Categorias disponíveis: ${catList}
+
+INSTRUÇÕES CRÍTICAS PARA DATAS:
+- Use EXATAMENTE o ano e o mês mostrados em cada data do documento
+- No Brasil, o formato é DD/MM/AAAA: "28/05/2025" = dia 28, mês maio (05), ano 2025
+- Se a data mostrar 2025, use 2025. Se mostrar 2026, use 2026. NUNCA altere o ano.
+- Se as datas não tiverem ano explícito, procure a "data de vencimento" ou "competência" da fatura e use esse mesmo ano
+- NÃO confunda dia e mês: "28/05" = dia 28 de maio, NÃO dia 5 de agosto
+- Extraia apenas transações JÁ REALIZADAS. IGNORE completamente seções de "Próximas Parcelas", "Parcelas Futuras" ou qualquer débito projetado
 
 Retorne APENAS um JSON válido, sem texto adicional:
 {"transactions": [{"date": "YYYY-MM-DD", "description": "Nome do estabelecimento", "amount": 0.00, "type": "expense", "category": "Categoria"}]}
 
-Regras importantes:
+Regras:
 - type: "expense" para compras, débitos, saques · "income" para pagamentos, estornos, créditos
 - amount: número positivo sem símbolo de moeda
-- date: formato YYYY-MM-DD (se faltar o ano, use o ano mais provável da fatura)
 - category: use exatamente um dos nomes da lista de categorias
-- Inclua TODAS as transações, sem resumir
-- Ignore: limite, saldo, totais da fatura, dados pessoais
+- Inclua TODAS as transações realizadas, sem resumir
+- Ignore: limite, saldo, totais da fatura, dados pessoais, parcelas futuras
 - Restaurantes/lanchonetes → Alimentação
 - Postos de combustível → Transporte
 - Farmácias, hospitais → Saúde

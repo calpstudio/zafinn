@@ -58,7 +58,8 @@ const ZDB = (function() {
       type: t.type,
       category: t.categories?.name || 'Outros',
       account: t.account_name || '',
-      notes: t.notes || ''
+      notes: t.notes || '',
+      yearMonth: t.year_month
     }));
 
     const incomes = (bdRes.data || [])
@@ -396,7 +397,8 @@ const ZDB = (function() {
       id: t.id, date: t.date, description: t.description,
       amount: parseFloat(t.amount), type: t.type,
       category: t.categories?.name || 'Outros',
-      account: t.account_name || ''
+      account: t.account_name || '',
+      yearMonth: t.year_month
     }));
   }
 

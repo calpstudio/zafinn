@@ -113,8 +113,9 @@ const ZCards = (function() {
     const curKey  = _currentKey(card.closing_day);
     const prevKey = _prevKey(card.closing_day);
 
-    const curTx  = cardTx.filter(tx => _billKey(tx.date, card.closing_day) === curKey);
-    const prevTx = cardTx.filter(tx => _billKey(tx.date, card.closing_day) === prevKey);
+    const _txBillKey = tx => tx.yearMonth || _billKey(tx.date, card.closing_day);
+    const curTx  = cardTx.filter(tx => _txBillKey(tx) === curKey);
+    const prevTx = cardTx.filter(tx => _txBillKey(tx) === prevKey);
 
     const curTotal  = curTx.reduce((s, t) => s + t.amount, 0);
     const prevTotal = prevTx.reduce((s, t) => s + t.amount, 0);
