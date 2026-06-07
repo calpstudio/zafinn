@@ -294,6 +294,13 @@ const ZTransactions = (function() {
           </div>
         </div>
 
+        <!-- Botão importar -->
+        <button onclick="ZApp.openModal('importTransactions', {month:'${month}'})"
+          style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:11px; background:var(--card); border:1px dashed var(--border); border-radius:var(--radius-sm); color:var(--text-secondary); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Importar Extrato / Fatura
+        </button>
+
         <!-- Lista de transações -->
         ${groups.length === 0 && projected.length === 0 ? `
           <div class="card">
