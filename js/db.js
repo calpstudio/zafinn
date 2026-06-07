@@ -384,8 +384,9 @@ const ZDB = (function() {
   async function loadCardTransactions(months = 3) {
     const uid = ZAuth.getUser()?.id;
     if (!uid) return [];
-    const now = new Date();
-    const startMonth = `${now.getFullYear()}-${String(now.getMonth() - months + 2).padStart(2,'0')}`;
+    const d = new Date();
+    d.setMonth(d.getMonth() - months + 1);
+    const startMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const { data } = await _sb.from('transactions')
       .select('*, categories(name)')
       .eq('user_id', uid).eq('type', 'expense')

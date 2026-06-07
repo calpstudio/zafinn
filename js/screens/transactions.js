@@ -18,7 +18,7 @@ const ZTransactions = (function() {
   function renderDesktop(state) {
     const { data, month } = state;
     const allTx = (data.months[month]?.transactions || []);
-    const projected = _getProjected(data.recurringTemplates || [], month);
+    const projected = _getProjected(data.recurringTemplates || [], month, data.months);
 
     const filtered = activeFilter === 'income' ? allTx.filter(t => t.type === 'income')
                    : activeFilter === 'expense' ? allTx.filter(t => t.type === 'expense')
@@ -174,7 +174,7 @@ const ZTransactions = (function() {
   function renderMobile(state) {
     const { data, month } = state;
     const allTx = (data.months[month]?.transactions || []);
-    const projected = _getProjected(data.recurringTemplates || [], month);
+    const projected = _getProjected(data.recurringTemplates || [], month, data.months);
     const monthName = ZUtils.getMonthName(month);
 
     const filtered = activeFilter === 'income' ? allTx.filter(t => t.type === 'income')
@@ -302,8 +302,10 @@ const ZTransactions = (function() {
     return (ty - fy) * 12 + (tm - fm);
   }
 
-  function _getProjected(templates, month) {
+  function _getProjected(templates, month, allMonths) {
     const result = [];
+
+    // Prioridade 1: templates salvos no banco
     (templates || []).forEach(t => {
       if (!t.is_active) return;
       if (month <= t.last_created_month) return;
@@ -317,6 +319,37 @@ const ZTransactions = (function() {
         result.push({ ...t });
       }
     });
+
+    // Fallback: infere parcelas de transações existentes (padrão "Desc X/N")
+    // Usado quando o banco não tem a tabela recurring_templates
+    if (result.length === 0 && allMonths) {
+      const seen = new Set();
+      const pattern = /^(.+)\s(\d+)\/(\d+)$/;
+      Object.entries(allMonths).forEach(([txMonth, monthData]) => {
+        (monthData.transactions || []).forEach(tx => {
+          const m = tx.description?.match(pattern);
+          if (!m) return;
+          const [, base, numStr, totalStr] = m;
+          const key = `${base}/${totalStr}/${tx.amount}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          const currentNum = parseInt(numStr);
+          const total = parseInt(totalStr);
+          if (isNaN(currentNum) || isNaN(total) || total <= 1) return;
+          // Calcula start_month voltando (currentNum-1) meses do mês da transação
+          const [ty, tm] = txMonth.split('-').map(Number);
+          const sd = new Date(ty, tm - 1 - (currentNum - 1), 1);
+          const startMonth = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}`;
+          const installNum = _mdiff(startMonth, month) + 1;
+          if (installNum <= 0 || installNum > total) return;
+          if (installNum === currentNum && txMonth === month) return; // já é tx real
+          result.push({ description: `${base} ${installNum}/${total}`,
+            amount: tx.amount, type: tx.type, category: tx.category,
+            account: tx.account || '', kind: 'installment', installNum, total });
+        });
+      });
+    }
+
     return result;
   }
 
