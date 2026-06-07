@@ -779,9 +779,15 @@ const ZModals = (function() {
 
     const detectedMonth = ZImport.detectMonth(transactions);
     const hasKey = ZAI.hasKey();
+    const cards = ZApp.state.data.creditCards || [];
+
+    const cardOptions = [
+      `<option value="">Nenhum (sem cartão)</option>`,
+      ...cards.map(c => `<option value="${c.name}">${c.name}</option>`)
+    ].join('');
 
     document.getElementById('import-summary').innerHTML = `
-      <div style="background:var(--primary-light); border:1px solid var(--primary-mid); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:4px">
+      <div style="background:var(--primary-light); border:1px solid var(--primary-mid); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:8px">
         <div style="font-size:14px; font-weight:700; color:var(--primary)">
           ✅ ${transactions.length} transações detectadas
         </div>
@@ -791,6 +797,13 @@ const ZModals = (function() {
           · Despesas: ${transactions.filter(t=>t.type==='expense').length}
         </div>
       </div>
+      ${cards.length > 0 ? `
+      <div style="margin-bottom:8px">
+        <label style="font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px">Vincular ao cartão</label>
+        <select id="import-card-select" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--text); font-size:13px">
+          ${cardOptions}
+        </select>
+      </div>` : ''}
     `;
 
     renderImportPreviewTable(transactions);
@@ -910,6 +923,7 @@ const ZModals = (function() {
     document.getElementById('import-footer').innerHTML = '';
 
     const month = ZApp.state.month;
+    const selectedCard = document.getElementById('import-card-select')?.value || '';
     let saved = 0;
     let errors = 0;
 
@@ -926,7 +940,7 @@ const ZModals = (function() {
           amount: t.amount,
           type: t.type,
           category: t.category || 'Outros',
-          account: '',
+          account: selectedCard,
           notes: 'Importado'
         };
         await ZDB.addTransaction(txMonth, newTx);
