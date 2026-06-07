@@ -7,9 +7,49 @@
 const ZTransactions = (function() {
 
   let activeFilter = 'all';
+  let selectMode = false;
+  let selectedIds = new Set();
 
   function render(state) {
     return ZApp.isDesktop() ? renderDesktop(state) : renderMobile(state);
+  }
+
+  /* ================================================
+     SELEÇÃO MÚLTIPLA
+     ================================================ */
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    selectedIds = new Set();
+    ZApp.render();
+  }
+
+  function toggleSelect(id) {
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    ZApp.render();
+  }
+
+  function selectAll(ids) {
+    const allSelected = ids.every(id => selectedIds.has(id));
+    if (allSelected) ids.forEach(id => selectedIds.delete(id));
+    else ids.forEach(id => selectedIds.add(id));
+    ZApp.render();
+  }
+
+  async function deleteSelected() {
+    const n = selectedIds.size;
+    if (n === 0) return;
+    if (!confirm(`Excluir ${n} lançamento${n > 1 ? 's' : ''}? Esta ação não pode ser desfeita.`)) return;
+    try {
+      for (const id of selectedIds) await ZDB.deleteTransaction(id);
+      const month = ZApp.state.month;
+      const ids = [...selectedIds];
+      ZApp.state.data.months[month].transactions =
+        (ZApp.state.data.months[month]?.transactions || []).filter(t => !ids.includes(t.id));
+      selectedIds = new Set();
+      selectMode = false;
+      ZApp.render();
+    } catch(e) { alert('Erro ao excluir: ' + e.message); }
   }
 
   /* ================================================
@@ -29,6 +69,8 @@ const ZTransactions = (function() {
     const balance = totalIncome - totalExpense;
 
     const txSorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+    const allIds = txSorted.map(t => t.id);
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id));
 
     return `
       <div class="screen-content">
@@ -75,6 +117,16 @@ const ZTransactions = (function() {
                   </button>
                 `).join('')}
               </div>
+              ${selectMode && selectedIds.size > 0 ? `
+                <button onclick="ZTransactions.deleteSelected()"
+                  style="padding:7px 14px; font-size:12px; background:var(--danger); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600">
+                  Excluir ${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}
+                </button>
+              ` : ''}
+              <button onclick="ZTransactions.toggleSelectMode()"
+                style="padding:7px 14px; font-size:12px; background:${selectMode ? 'var(--bg)' : 'var(--bg)'}; color:${selectMode ? 'var(--danger)' : 'var(--text-secondary)'}; border:1px solid ${selectMode ? 'var(--danger)' : 'var(--border)'}; border-radius:8px; cursor:pointer; font-weight:600">
+                ${selectMode ? 'Cancelar' : 'Selecionar'}
+              </button>
               <button class="header-action-btn" style="padding:7px 14px; font-size:12px; background:var(--bg); color:var(--text-secondary); border:1px solid var(--border)" onclick="ZApp.openModal('importTransactions', {month:'${month}'})">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Importar
@@ -96,6 +148,7 @@ const ZTransactions = (function() {
           <table class="data-table">
             <thead>
               <tr>
+                ${selectMode ? `<th style="width:40px; text-align:center"><input type="checkbox" ${allSelected ? 'checked' : ''} onchange="ZTransactions.selectAll([${allIds.map(id => `'${id}'`).join(',')}])" style="width:16px;height:16px;cursor:pointer"></th>` : ''}
                 <th>Descrição</th>
                 <th>Categoria</th>
                 <th>Conta</th>
@@ -107,8 +160,11 @@ const ZTransactions = (function() {
             <tbody>
               ${txSorted.map(tx => {
                 const cfg = ZUtils.getCatConfig(tx.category);
+                const isSelected = selectedIds.has(tx.id);
                 return `
-                <tr style="cursor:pointer" onclick="ZTransactions.openEdit('${tx.id}')">
+                <tr style="cursor:pointer; background:${isSelected ? 'rgba(99,102,241,0.08)' : ''}"
+                    onclick="${selectMode ? `ZTransactions.toggleSelect('${tx.id}')` : `ZTransactions.openEdit('${tx.id}')`}">
+                  ${selectMode ? `<td style="text-align:center" onclick="event.stopPropagation()"><input type="checkbox" ${isSelected ? 'checked' : ''} onchange="ZTransactions.toggleSelect('${tx.id}')" style="width:16px;height:16px;cursor:pointer"></td>` : ''}
                   <td>
                     <div style="display:flex; align-items:center; gap:10px">
                       <div class="tx-icon" style="background:${cfg.bg}; width:36px; height:36px; font-size:16px; border-radius:9px; flex-shrink:0">${cfg.emoji}</div>
@@ -134,6 +190,7 @@ const ZTransactions = (function() {
                 const cfg = ZUtils.getCatConfig(p.category);
                 return `
                 <tr style="opacity:0.55">
+                  ${selectMode ? '<td></td>' : ''}
                   <td>
                     <div style="display:flex; align-items:center; gap:10px">
                       <div class="tx-icon" style="background:${cfg.bg}; width:36px; height:36px; font-size:16px; border-radius:9px; flex-shrink:0">${cfg.emoji}</div>
@@ -191,14 +248,20 @@ const ZTransactions = (function() {
           <div class="subtitle">${monthName}</div>
           <h1>Lançamentos</h1>
         </div>
-        <div class="month-selector">
-          <span>${ZUtils.getMonthNameShort(month)}</span>
-          <button class="month-btn" onclick="ZApp.changeMonth(-1)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        <div style="display:flex; gap:8px; align-items:center">
+          <button onclick="ZTransactions.toggleSelectMode()"
+            style="padding:6px 14px; font-size:13px; font-weight:600; background:${selectMode ? 'var(--danger-light)' : 'var(--bg)'}; color:${selectMode ? 'var(--danger)' : 'var(--text-secondary)'}; border:1px solid ${selectMode ? 'var(--danger)' : 'var(--border)'}; border-radius:20px; cursor:pointer">
+            ${selectMode ? 'Cancelar' : 'Selecionar'}
           </button>
-          <button class="month-btn" onclick="ZApp.changeMonth(1)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+          <div class="month-selector">
+            <span>${ZUtils.getMonthNameShort(month)}</span>
+            <button class="month-btn" onclick="ZApp.changeMonth(-1)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="month-btn" onclick="ZApp.changeMonth(1)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -271,8 +334,18 @@ const ZTransactions = (function() {
           </div>
           ${txs.map(tx => {
             const cfg = ZUtils.getCatConfig(tx.category);
+            const isSelected = selectedIds.has(tx.id);
             return `
-            <div class="transaction-item" onclick="ZTransactions.openEdit('${tx.id}')">
+            <div class="transaction-item${isSelected ? ' tx-selected' : ''}"
+                 style="${isSelected ? 'background:rgba(99,102,241,0.1); border-color:var(--primary)' : ''}"
+                 onclick="${selectMode ? `ZTransactions.toggleSelect('${tx.id}')` : `ZTransactions.openEdit('${tx.id}')`}">
+              ${selectMode ? `
+                <div style="display:flex; align-items:center; padding-right:10px">
+                  <div style="width:22px; height:22px; border-radius:6px; border:2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}; background:${isSelected ? 'var(--primary)' : 'transparent'}; display:flex; align-items:center; justify-content:center; flex-shrink:0">
+                    ${isSelected ? '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="14"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                  </div>
+                </div>
+              ` : ''}
               <div class="tx-icon" style="background:${cfg.bg}">${cfg.emoji}</div>
               <div class="tx-info">
                 <div class="tx-desc">${tx.description}</div>
@@ -288,11 +361,35 @@ const ZTransactions = (function() {
         <div class="spacer-lg"></div>
       </div>
 
+      <!-- Barra de ação ao selecionar (mobile) -->
+      ${selectMode ? `
+        <div style="position:fixed; bottom:80px; left:0; right:0; z-index:50; padding:0 16px">
+          <div style="background:var(--card); border:1px solid var(--border); border-radius:16px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 20px rgba(0,0,0,0.15)">
+            <span style="font-size:14px; font-weight:600; color:var(--text-secondary)">
+              ${selectedIds.size === 0 ? 'Nenhum selecionado' : `${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}`}
+            </span>
+            <div style="display:flex; gap:8px">
+              <button onclick="ZTransactions.selectAll([${filtered.map(t => `'${t.id}'`).join(',')}])"
+                style="padding:8px 14px; font-size:13px; font-weight:600; background:var(--bg); color:var(--text-secondary); border:1px solid var(--border); border-radius:10px; cursor:pointer">
+                ${filtered.every(t => selectedIds.has(t.id)) && filtered.length > 0 ? 'Desmarcar todos' : 'Selecionar todos'}
+              </button>
+              <button onclick="ZTransactions.deleteSelected()"
+                ${selectedIds.size === 0 ? 'disabled' : ''}
+                style="padding:8px 14px; font-size:13px; font-weight:600; background:${selectedIds.size > 0 ? 'var(--danger)' : 'var(--bg)'}; color:${selectedIds.size > 0 ? 'white' : 'var(--text-muted)'}; border:none; border-radius:10px; cursor:${selectedIds.size > 0 ? 'pointer' : 'default'}; opacity:${selectedIds.size > 0 ? '1' : '0.5'}">
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Botão flutuante adicionar -->
-      <button class="nav-center-btn" style="position:absolute; bottom:90px; right:16px; z-index:45"
-        onclick="ZApp.openModal('addTransaction', {month:'${month}'})">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
+      ${!selectMode ? `
+        <button class="nav-center-btn" style="position:absolute; bottom:90px; right:16px; z-index:45"
+          onclick="ZApp.openModal('addTransaction', {month:'${month}'})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      ` : ''}
     `;
   }
 
@@ -321,7 +418,6 @@ const ZTransactions = (function() {
     });
 
     // Fallback: infere parcelas de transações existentes (padrão "Desc X/N")
-    // Usado quando o banco não tem a tabela recurring_templates
     if (result.length === 0 && allMonths) {
       const seen = new Set();
       const pattern = /^(.+)\s(\d+)\/(\d+)$/;
@@ -336,13 +432,12 @@ const ZTransactions = (function() {
           const currentNum = parseInt(numStr);
           const total = parseInt(totalStr);
           if (isNaN(currentNum) || isNaN(total) || total <= 1) return;
-          // Calcula start_month voltando (currentNum-1) meses do mês da transação
           const [ty, tm] = txMonth.split('-').map(Number);
           const sd = new Date(ty, tm - 1 - (currentNum - 1), 1);
           const startMonth = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}`;
           const installNum = _mdiff(startMonth, month) + 1;
           if (installNum <= 0 || installNum > total) return;
-          if (installNum === currentNum && txMonth === month) return; // já é tx real
+          if (installNum === currentNum && txMonth === month) return;
           result.push({ description: `${base} ${installNum}/${total}`,
             amount: tx.amount, type: tx.type, category: tx.category,
             account: tx.account || '', kind: 'installment', installNum, total });
@@ -370,6 +465,6 @@ const ZTransactions = (function() {
     ZApp.openModal('editTransaction', { txId, month: ZApp.state.month });
   }
 
-  return { render, setFilter, openEdit };
+  return { render, setFilter, openEdit, toggleSelectMode, toggleSelect, selectAll, deleteSelected };
 
 })();
