@@ -951,6 +951,7 @@ const ZModals = (function() {
         ZApp.state.data.months[txMonth].transactions.push(newTx);
         saved++;
       } catch(e) {
+        console.error('Erro ao importar transação:', e.message, t);
         errors++;
       }
     }
@@ -960,7 +961,11 @@ const ZModals = (function() {
     ZApp.state.month = detectedMonth;
     ZApp.navigate('transactions');
     setTimeout(() => {
-      alert(`✅ ${saved} lançamentos importados com sucesso!${errors > 0 ? `\n⚠️ ${errors} falharam.` : ''}`);
+      if (saved === 0 && errors > 0) {
+        alert(`❌ Nenhum lançamento foi importado.\n${errors} transações falharam — verifique o console (F12) para detalhes.`);
+      } else {
+        alert(`✅ ${saved} lançamentos importados com sucesso!${errors > 0 ? `\n⚠️ ${errors} falharam.` : ''}`);
+      }
     }, 300);
   }
 
