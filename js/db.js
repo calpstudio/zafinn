@@ -166,11 +166,10 @@ const ZDB = (function() {
      ================================================ */
   async function addTransaction(yearMonth, tx) {
     const uid = ZAuth.getUser()?.id;
-    let catId = _catId(tx.category);
-    if (!catId) {
-      const fallback = tx.type === 'income' ? 'Outras Receitas' : 'Outros';
-      catId = _catId(fallback) || _cats.find(c => c.type === tx.type || c.type === 'both')?.id;
-    }
+    const catId = _catId(tx.category)
+      || _catId(tx.type === 'income' ? 'Outras Receitas' : 'Outros')
+      || _cats.find(c => c.type === tx.type || c.type === 'both')?.id
+      || null;
     const { error } = await _sb.from('transactions').insert({
       id: tx.id,
       user_id: uid,

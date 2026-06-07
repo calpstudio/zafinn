@@ -18,6 +18,7 @@ const ZTransactions = (function() {
   function renderDesktop(state) {
     const { data, month } = state;
     const allTx = (data.months[month]?.transactions || []);
+    const projected = _getProjected(data.recurringTemplates || [], month);
 
     const filtered = activeFilter === 'income' ? allTx.filter(t => t.type === 'income')
                    : activeFilter === 'expense' ? allTx.filter(t => t.type === 'expense')
@@ -85,7 +86,7 @@ const ZTransactions = (function() {
             </div>
           </div>
 
-          ${txSorted.length === 0 ? `
+          ${txSorted.length === 0 && projected.length === 0 ? `
             <div class="empty-state" style="padding:40px">
               <div class="empty-icon">💳</div>
               <h3>Nenhum lançamento encontrado</h3>
@@ -129,6 +130,28 @@ const ZTransactions = (function() {
                   </td>
                 </tr>`;
               }).join('')}
+              ${projected.map(p => {
+                const cfg = ZUtils.getCatConfig(p.category);
+                return `
+                <tr style="opacity:0.55">
+                  <td>
+                    <div style="display:flex; align-items:center; gap:10px">
+                      <div class="tx-icon" style="background:${cfg.bg}; width:36px; height:36px; font-size:16px; border-radius:9px; flex-shrink:0">${cfg.emoji}</div>
+                      <div>
+                        <span style="font-weight:600">${p.description}</span>
+                        <span style="display:block; font-size:11px; color:var(--text-muted)">${p.kind === 'installment' ? `Parcela ${p.installNum}/${p.total}` : 'Recorrente'}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span style="background:${cfg.bg}; color:${cfg.color}; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:600">${p.category}</span></td>
+                  <td style="color:var(--text-muted)">${p.account || '—'}</td>
+                  <td style="color:var(--text-muted)">—</td>
+                  <td><span style="padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; background:var(--bg); color:var(--text-muted); border:1px dashed var(--border)">Previsto</span></td>
+                  <td style="font-weight:700; color:var(--text-muted); font-size:14px">
+                    -${ZUtils.formatCurrencyShort(p.amount)}
+                  </td>
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
           <div style="padding:12px 12px; border-top:2px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px">
@@ -151,6 +174,7 @@ const ZTransactions = (function() {
   function renderMobile(state) {
     const { data, month } = state;
     const allTx = (data.months[month]?.transactions || []);
+    const projected = _getProjected(data.recurringTemplates || [], month);
     const monthName = ZUtils.getMonthName(month);
 
     const filtered = activeFilter === 'income' ? allTx.filter(t => t.type === 'income')
@@ -208,7 +232,7 @@ const ZTransactions = (function() {
         </div>
 
         <!-- Lista de transações -->
-        ${groups.length === 0 ? `
+        ${groups.length === 0 && projected.length === 0 ? `
           <div class="card">
             <div class="empty-state">
               <div class="empty-icon">💳</div>
@@ -216,7 +240,27 @@ const ZTransactions = (function() {
               <p>Use o botão <strong>+</strong> abaixo para lançar uma receita ou despesa</p>
             </div>
           </div>
-        ` : groups.map(([date, txs]) => {
+        ` : ''}
+        ${projected.length > 0 ? `
+          <div style="margin-bottom:4px; padding:0 2px">
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:6px">Previstos</div>
+            ${projected.map(p => {
+              const cfg = ZUtils.getCatConfig(p.category);
+              return `
+              <div class="transaction-item" style="opacity:0.6; border-style:dashed">
+                <div class="tx-icon" style="background:${cfg.bg}">${cfg.emoji}</div>
+                <div class="tx-info">
+                  <div class="tx-desc">${p.description}</div>
+                  <div class="tx-cat">${p.kind === 'installment' ? `Parcela ${p.installNum}/${p.total}` : 'Recorrente'}</div>
+                </div>
+                <div class="tx-right">
+                  <div class="tx-value expense">-${ZUtils.formatCurrencyShort(p.amount)}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        ` : ''}
+        ${groups.length > 0 ? groups.map(([date, txs]) => {
           const dayTotal = txs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
           return `
           <div class="transaction-group-header">
@@ -239,7 +283,7 @@ const ZTransactions = (function() {
               </div>
             </div>`;
           }).join('')}`;
-        }).join('')}
+        }).join('') : ''}
 
         <div class="spacer-lg"></div>
       </div>
@@ -250,6 +294,30 @@ const ZTransactions = (function() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     `;
+  }
+
+  function _mdiff(from, to) {
+    const [fy, fm] = from.split('-').map(Number);
+    const [ty, tm] = to.split('-').map(Number);
+    return (ty - fy) * 12 + (tm - fm);
+  }
+
+  function _getProjected(templates, month) {
+    const result = [];
+    (templates || []).forEach(t => {
+      if (!t.is_active) return;
+      if (month <= t.last_created_month) return;
+      if (month < t.start_month) return;
+      if (t.kind === 'installment') {
+        const installNum = _mdiff(t.start_month, month) + 1;
+        if (installNum > t.total_installments) return;
+        result.push({ ...t, installNum, total: t.total_installments,
+          description: `${t.description} ${installNum}/${t.total_installments}` });
+      } else {
+        result.push({ ...t });
+      }
+    });
+    return result;
   }
 
   function formatGroupDate(dateStr) {
