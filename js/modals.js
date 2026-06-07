@@ -703,6 +703,25 @@ const ZModals = (function() {
      IMPORTAR EXTRATO
      ================================================ */
   let _importedTxs = [];
+  let _duplicateFlags = [];
+
+  // Detecta quais transações importadas já existem no banco (mesma descrição + mesmo valor)
+  function _detectDuplicates(importedTxs) {
+    const existing = [];
+    Object.values(ZApp.state.data.months || {}).forEach(m => {
+      (m.transactions || []).forEach(tx => existing.push(tx));
+    });
+    (ZApp.state.data.cardTransactions || []).forEach(tx => {
+      if (!existing.find(e => e.id === tx.id)) existing.push(tx);
+    });
+    return importedTxs.map(t => {
+      const descNorm = (t.description || '').toLowerCase().trim();
+      return existing.some(e =>
+        (e.description || '').toLowerCase().trim() === descNorm &&
+        Math.abs(e.amount - t.amount) < 0.01
+      );
+    });
+  }
 
   // Calcula o mês de vencimento da fatura para uma data de compra
   function _cardBillMonth(dateStr, closingDay) {
@@ -784,12 +803,14 @@ const ZModals = (function() {
 
   function _showImportPreview(transactions) {
     _importedTxs = transactions;
+    _duplicateFlags = _detectDuplicates(transactions);
     document.getElementById('import-step-3').style.display = 'none';
     document.getElementById('import-step-2').style.display = 'block';
 
     const detectedMonth = ZImport.detectMonth(transactions);
     const hasKey = ZAI.hasKey();
     const cards = ZApp.state.data.creditCards || [];
+    const dupCount = _duplicateFlags.filter(Boolean).length;
 
     const cardOptions = [
       `<option value="">Nenhum (sem cartão)</option>`,
@@ -807,6 +828,17 @@ const ZModals = (function() {
           · Despesas: ${transactions.filter(t=>t.type==='expense').length}
         </div>
       </div>
+      ${dupCount > 0 ? `
+      <div style="background:#FFF8E1; border:1px solid #F59E0B; border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px">
+        <div>
+          <div style="font-size:13px; font-weight:700; color:#92400E">⚠️ ${dupCount} possível${dupCount > 1 ? 'is' : ''} duplicata${dupCount > 1 ? 's' : ''} encontrada${dupCount > 1 ? 's' : ''}</div>
+          <div style="font-size:11px; color:#92400E; margin-top:2px">Marcadas em laranja abaixo. Mesma descrição e valor já existem.</div>
+        </div>
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#92400E; white-space:nowrap; cursor:pointer">
+          <input type="checkbox" id="skip-duplicates" checked style="width:15px; height:15px; cursor:pointer">
+          Pular duplicatas
+        </label>
+      </div>` : ''}
       ${cards.length > 0 ? `
       <div style="margin-bottom:8px">
         <label style="font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px">Vincular ao cartão</label>
@@ -816,7 +848,7 @@ const ZModals = (function() {
       </div>` : ''}
     `;
 
-    renderImportPreviewTable(transactions);
+    renderImportPreviewTable(transactions, _duplicateFlags);
 
     document.getElementById('import-footer').innerHTML = `
       <button class="btn btn-secondary" onclick="ZModals.close()">Cancelar</button>
@@ -880,13 +912,18 @@ const ZModals = (function() {
     _showImportPreview(transactions);
   }
 
-  function renderImportPreviewTable(transactions) {
+  function renderImportPreviewTable(transactions, duplicateFlags) {
+    const flags = duplicateFlags || [];
     const rows = transactions.slice(0, 100).map((t, i) => {
       const cfg = ZUtils.getCatConfig(t.category || 'Outros');
+      const isDup = flags[i] === true;
       return `
-        <tr>
+        <tr style="${isDup ? 'background:#FFFBEB;' : ''}">
           <td style="font-size:12px; color:var(--text-muted)">${t.date}</td>
-          <td style="font-size:13px">${t.description}</td>
+          <td style="font-size:13px">
+            ${t.description}
+            ${isDup ? '<span style="margin-left:6px; font-size:10px; font-weight:700; background:#F59E0B; color:white; padding:1px 5px; border-radius:4px">DUP</span>' : ''}
+          </td>
           <td style="font-size:12px">
             <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; background:${cfg.bg}; color:${cfg.color}; font-size:11px; font-weight:600">
               ${cfg.emoji} ${t.category || 'Sem categoria'}
@@ -937,12 +974,16 @@ const ZModals = (function() {
     const cardData = selectedCard
       ? (ZApp.state.data.creditCards || []).find(c => c.name === selectedCard)
       : null;
+    const skipDups = document.getElementById('skip-duplicates')?.checked !== false;
     let saved = 0;
+    let skipped = 0;
     let errors = 0;
 
     const msgEl = document.getElementById('import-loading-msg');
 
-    for (const t of _importedTxs) {
+    for (let i = 0; i < _importedTxs.length; i++) {
+      const t = _importedTxs[i];
+      if (skipDups && _duplicateFlags[i]) { skipped++; continue; }
       try {
         if (msgEl) msgEl.textContent = `Importando ${saved + 1} de ${_importedTxs.length}...`;
 
@@ -991,7 +1032,9 @@ const ZModals = (function() {
       if (saved === 0 && errors > 0) {
         alert(`❌ Nenhum lançamento foi importado.\n${errors} transações falharam — verifique o console (F12) para detalhes.`);
       } else {
-        alert(`✅ ${saved} lançamentos importados com sucesso!${errors > 0 ? `\n⚠️ ${errors} falharam.` : ''}`);
+        const skipMsg = skipped > 0 ? `\n⏭️ ${skipped} duplicata${skipped > 1 ? 's' : ''} ignorada${skipped > 1 ? 's' : ''}.` : '';
+        const errMsg = errors > 0 ? `\n⚠️ ${errors} falharam.` : '';
+        alert(`✅ ${saved} lançamentos importados com sucesso!${skipMsg}${errMsg}`);
       }
     }, 300);
   }
