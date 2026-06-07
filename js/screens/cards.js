@@ -6,6 +6,13 @@ const ZCards = (function() {
 
   const CARD_COLORS = ['#0F0F0F','#1a1a2e','#16213e','#1B4332','#7B2D8B','#C0392B','#1A5276','#784212'];
   const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const _expanded = new Set(); // IDs de faturas expandidas: `${cardId}-cur` ou `${cardId}-prev`
+
+  function toggleExpand(key) {
+    if (_expanded.has(key)) _expanded.delete(key);
+    else _expanded.add(key);
+    ZApp.render();
+  }
 
   function _fmt(v) {
     return 'R$ ' + (v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -179,7 +186,7 @@ const ZCards = (function() {
             <div class="limit-text">${_fmt(curTotal)} de ${_fmt(card.limit_amount)} · ${limitPct.toFixed(0)}%</div>
           </div>` : ''}
 
-          ${_renderTxList(curTx, 'Nenhum gasto nesta fatura')}
+          ${_renderTxList(curTx, 'Nenhum gasto nesta fatura', `${card.id}-cur`)}
         </div>
 
         <!-- Fatura anterior -->
@@ -190,7 +197,7 @@ const ZCards = (function() {
             </div>
             <div class="invoice-total muted">${_fmt(prevTotal)}</div>
           </div>
-          ${_renderTxList(prevTx, 'Sem dados da fatura anterior', 3)}
+          ${_renderTxList(prevTx, 'Sem dados da fatura anterior', `${card.id}-prev`, 3)}
         </div>
 
         <div class="card-actions">
@@ -200,10 +207,12 @@ const ZCards = (function() {
     `;
   }
 
-  function _renderTxList(txList, emptyMsg, limit = 5) {
+  function _renderTxList(txList, emptyMsg, expandKey, limit = 5) {
     if (txList.length === 0) return `<div class="invoice-empty">${emptyMsg}</div>`;
     const sorted = [...txList].sort((a, b) => b.date.localeCompare(a.date));
-    const shown = sorted.slice(0, limit);
+    const isExpanded = _expanded.has(expandKey);
+    const shown = isExpanded ? sorted : sorted.slice(0, limit);
+    const remaining = sorted.length - limit;
     return `
       <div class="invoice-tx-list">
         ${shown.map(tx => `
@@ -218,7 +227,10 @@ const ZCards = (function() {
             </div>
           </div>
         `).join('')}
-        ${txList.length > limit ? `<div class="tx-more">+ ${txList.length - limit} lançamentos</div>` : ''}
+        ${sorted.length > limit ? `
+          <div class="tx-more" onclick="ZCards.toggleExpand('${expandKey}')" style="cursor:pointer; color:var(--primary); font-weight:600; padding:10px; text-align:center; border-top:1px solid var(--border)">
+            ${isExpanded ? '▲ Mostrar menos' : `▼ Ver mais ${remaining} lançamento${remaining > 1 ? 's' : ''}`}
+          </div>` : ''}
       </div>
     `;
   }
@@ -246,6 +258,6 @@ const ZCards = (function() {
     } catch(e) { alert(e.message); }
   }
 
-  return { render, deleteCard, CARD_COLORS };
+  return { render, deleteCard, toggleExpand, CARD_COLORS };
 
 })();
