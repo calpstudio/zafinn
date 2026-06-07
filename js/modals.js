@@ -704,6 +704,16 @@ const ZModals = (function() {
      ================================================ */
   let _importedTxs = [];
 
+  // Calcula o mês de vencimento da fatura para uma data de compra
+  function _cardBillMonth(dateStr, closingDay) {
+    const d = new Date((ZImport.parseDate(dateStr) || dateStr) + 'T12:00:00');
+    if (isNaN(d)) return dateStr.substring(0, 7);
+    let year = d.getFullYear();
+    let month = d.getMonth(); // 0-indexed
+    if (d.getDate() > closingDay) { month++; if (month > 11) { month = 0; year++; } }
+    return `${year}-${String(month + 1).padStart(2, '0')}`;
+  }
+
   function renderImport(params) {
     return `
       <div class="modal-handle"></div>
@@ -924,6 +934,9 @@ const ZModals = (function() {
 
     const month = ZApp.state.month;
     const selectedCard = document.getElementById('import-card-select')?.value || '';
+    const cardData = selectedCard
+      ? (ZApp.state.data.creditCards || []).find(c => c.name === selectedCard)
+      : null;
     let saved = 0;
     let errors = 0;
 
@@ -932,10 +945,21 @@ const ZModals = (function() {
     for (const t of _importedTxs) {
       try {
         if (msgEl) msgEl.textContent = `Importando ${saved + 1} de ${_importedTxs.length}...`;
-        const txMonth = (t.date || '').substring(0, 7) || month;
+
+        // Normaliza a data para YYYY-MM-DD
+        const txDate = ZImport.parseDate(t.date || '') || (month + '-01');
+
+        // Se tem cartão, usa o mês de vencimento da fatura (não o mês da compra)
+        let txMonth;
+        if (cardData) {
+          txMonth = _cardBillMonth(txDate, cardData.closing_day);
+        } else {
+          txMonth = txDate.substring(0, 7) || month;
+        }
+
         const newTx = {
           id: ZUtils.generateId(),
-          date: t.date,
+          date: txDate,
           description: t.description,
           amount: t.amount,
           type: t.type,
@@ -956,9 +980,12 @@ const ZModals = (function() {
       }
     }
 
-    const detectedMonth = ZImport.detectMonth(_importedTxs);
+    // Navega para o mês de vencimento da fatura (ou mês detectado)
+    const billMonth = cardData
+      ? _cardBillMonth(_importedTxs.find(t => t.date)?.date || (month + '-01'), cardData.closing_day)
+      : ZImport.detectMonth(_importedTxs);
     close();
-    ZApp.state.month = detectedMonth;
+    ZApp.state.month = billMonth;
     ZApp.navigate('transactions');
     setTimeout(() => {
       if (saved === 0 && errors > 0) {
