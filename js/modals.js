@@ -705,21 +705,33 @@ const ZModals = (function() {
   let _importedTxs = [];
   let _duplicateFlags = [];
 
-  // Detecta quais transações importadas já existem no banco (mesma descrição + mesmo valor)
+  // Carrega transações recentes do banco para comparação de duplicatas
+  async function _loadRecentForDupCheck() {
+    try {
+      ZApp.state.data._dupCheckTxs = await ZDB.loadCardTransactions(12);
+    } catch(e) {
+      ZApp.state.data._dupCheckTxs = [];
+    }
+  }
+
+  // Detecta quais transações importadas já existem (mesma descrição + mesmo valor)
   function _detectDuplicates(importedTxs) {
-    const existing = [];
-    Object.values(ZApp.state.data.months || {}).forEach(m => {
-      (m.transactions || []).forEach(tx => existing.push(tx));
-    });
-    (ZApp.state.data.cardTransactions || []).forEach(tx => {
-      if (!existing.find(e => e.id === tx.id)) existing.push(tx);
-    });
+    const seen = new Map();
+    const addTx = tx => {
+      const key = (tx.description || '').toLowerCase().trim();
+      if (!seen.has(key)) seen.set(key, []);
+      seen.get(key).push(tx.amount);
+    };
+    Object.values(ZApp.state.data.months || {}).forEach(m =>
+      (m.transactions || []).forEach(addTx)
+    );
+    (ZApp.state.data._dupCheckTxs || []).forEach(addTx);
+    (ZApp.state.data.cardTransactions || []).forEach(addTx);
+
     return importedTxs.map(t => {
       const descNorm = (t.description || '').toLowerCase().trim();
-      return existing.some(e =>
-        (e.description || '').toLowerCase().trim() === descNorm &&
-        Math.abs(e.amount - t.amount) < 0.01
-      );
+      const amounts = seen.get(descNorm) || [];
+      return amounts.some(a => Math.abs(a - t.amount) < 0.01);
     });
   }
 
@@ -893,6 +905,7 @@ const ZModals = (function() {
           _showImportError('Nenhuma transação encontrada. Verifique se o arquivo está legível e tente novamente.');
           return;
         }
+        await _loadRecentForDupCheck();
         _showImportPreview(transactions);
       } catch(e) {
         _showImportError('Erro: ' + e.message);
@@ -909,6 +922,7 @@ const ZModals = (function() {
       return;
     }
 
+    await _loadRecentForDupCheck();
     _showImportPreview(transactions);
   }
 
