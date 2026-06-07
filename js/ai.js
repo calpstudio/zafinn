@@ -139,19 +139,23 @@ Responda APENAS com um JSON válido no formato:
       ...(categories?.incomes  || [])
     ].join(', ');
 
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const anoAtual = new Date().getFullYear();
     const prompt = `Você é um especialista em extratos bancários e faturas de cartão de crédito brasileiros.
 
 Analise este documento e extraia as transações REALIZADAS no período da fatura.
 
+CONTEXTO: Hoje é ${hoje}. O ano atual é ${anoAtual}.
+
 Categorias disponíveis: ${catList}
 
 INSTRUÇÕES CRÍTICAS PARA DATAS:
-- Use EXATAMENTE o ano e o mês mostrados em cada data do documento
-- No Brasil, o formato é DD/MM/AAAA: "28/05/2025" = dia 28, mês maio (05), ano 2025
-- Se a data mostrar 2025, use 2025. Se mostrar 2026, use 2026. NUNCA altere o ano.
-- Se as datas não tiverem ano explícito, procure a "data de vencimento" ou "competência" da fatura e use esse mesmo ano
-- NÃO confunda dia e mês: "28/05" = dia 28 de maio, NÃO dia 5 de agosto
-- Extraia apenas transações JÁ REALIZADAS. IGNORE completamente seções de "Próximas Parcelas", "Parcelas Futuras" ou qualquer débito projetado
+- O ano atual é ${anoAtual}. Use ${anoAtual} para datas sem ano explícito, a menos que a fatura indique claramente outro ano.
+- No Brasil, o formato é DD/MM/AAAA: "19/05" = dia 19 de maio de ${anoAtual}
+- NÃO use 2024 nem outros anos passados sem motivo — esta é uma fatura atual
+- Se a fatura mostrar "vencimento: 15/06/${anoAtual}", todas as transações são do período desse ano
+- NÃO confunda dia e mês: "19/05" = dia 19, mês 05 (maio) — nunca inverta
+- Extraia apenas transações JÁ REALIZADAS. IGNORE seções de "Próximas Parcelas", "Parcelas Futuras" ou débitos futuros
 
 Retorne APENAS um JSON válido, sem texto adicional:
 {"transactions": [{"date": "YYYY-MM-DD", "description": "Nome do estabelecimento", "amount": 0.00, "type": "expense", "category": "Categoria"}]}
