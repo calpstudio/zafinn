@@ -995,6 +995,18 @@ const ZModals = (function() {
 
     const msgEl = document.getElementById('import-loading-msg');
 
+    // Para importação com cartão, todas as transações vão para o mesmo mês de fatura
+    // (calculado pela data mais recente do extrato, não por cada parcela individualmente)
+    let cardBillMonthFixed = null;
+    if (cardData) {
+      const latestDate = _importedTxs
+        .map(t => ZImport.parseDate(t.date || '') || '')
+        .filter(Boolean)
+        .sort()
+        .pop();
+      cardBillMonthFixed = _cardBillMonth(latestDate || (month + '-01'), cardData.closing_day);
+    }
+
     for (let i = 0; i < _importedTxs.length; i++) {
       const t = _importedTxs[i];
       if (skipDups && _duplicateFlags[i]) { skipped++; continue; }
@@ -1004,10 +1016,10 @@ const ZModals = (function() {
         // Normaliza a data para YYYY-MM-DD
         const txDate = ZImport.parseDate(t.date || '') || (month + '-01');
 
-        // Se tem cartão, usa o mês de vencimento da fatura (não o mês da compra)
+        // Se tem cartão, usa o mês de fatura fixo do extrato (não recalcula por parcela)
         let txMonth;
         if (cardData) {
-          txMonth = _cardBillMonth(txDate, cardData.closing_day);
+          txMonth = cardBillMonthFixed;
         } else {
           txMonth = txDate.substring(0, 7) || month;
         }
@@ -1037,7 +1049,7 @@ const ZModals = (function() {
 
     // Navega para o mês de vencimento da fatura (ou mês detectado)
     const billMonth = cardData
-      ? _cardBillMonth(_importedTxs.find(t => t.date)?.date || (month + '-01'), cardData.closing_day)
+      ? cardBillMonthFixed
       : ZImport.detectMonth(_importedTxs);
     close();
     ZApp.state.month = billMonth;
