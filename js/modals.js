@@ -19,6 +19,8 @@ const ZModals = (function() {
       case 'contributeGoal':      return renderContributeGoal(params);
       case 'onboarding':          return renderOnboarding(params);
       case 'addCard':             return renderAddCard(params);
+      case 'addAccount':          return renderAddAccount(params);
+      case 'editAccount':         return renderAddAccount(params);
       default: return '';
     }
   }
@@ -89,29 +91,44 @@ const ZModals = (function() {
           <label class="form-label">Conta / Cartão</label>
           ${(function() {
             const cards = ZApp.state.data.creditCards || [];
-            const currentAccount = tx ? (tx.account || '') : '';
+            const bankAccounts = ZApp.state.data.accounts || [];
+            const currentAccount = (params?.account) || (tx ? (tx.account || '') : '');
             const isCard = cards.some(c => c.name === currentAccount);
-            const isOther = currentAccount && !isCard;
+            const isBank = bankAccounts.some(a => a.name === currentAccount);
+            const isOther = currentAccount && !isCard && !isBank;
 
-            if (cards.length === 0) {
+            if (cards.length === 0 && bankAccounts.length === 0) {
               return `<input type="text" class="form-input" id="tx-account" placeholder="Ex: Nubank, Dinheiro, PIX..." value="${currentAccount}">
               <div style="font-size:11px; color:var(--text-muted); margin-top:6px">
-                💡 Cadastre seus cartões em <strong>Planejamento → Cartões</strong> para selecioná-los aqui
+                💡 Cadastre contas em <strong>Contas</strong> e cartões em <strong>Cartões</strong>
               </div>`;
             }
 
             return `
               <input type="hidden" id="tx-account" value="${currentAccount}">
               <div class="account-picker" id="tx-account-picker">
-                ${cards.map(c => `
-                  <button type="button" class="acc-chip ${c.name === currentAccount ? 'selected' : ''}"
-                    onclick="ZModals.selectTxAccount('${c.name.replace(/'/g, "\\'")}', this)"
-                    style="--acc-color:${c.color}">
-                    <span class="acc-dot" style="background:${c.color}"></span>${c.name}
-                  </button>
-                `).join('')}
+                ${bankAccounts.length > 0 ? `
+                  <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); width:100%; margin-bottom:2px">Contas</div>
+                  ${bankAccounts.map(a => `
+                    <button type="button" class="acc-chip ${a.name === currentAccount ? 'selected' : ''}"
+                      onclick="ZModals.selectTxAccount('${a.name.replace(/'/g, "\\'")}', this)"
+                      style="--acc-color:${a.color}">
+                      <span class="acc-dot" style="background:${a.color}"></span>${a.name}
+                    </button>
+                  `).join('')}
+                ` : ''}
+                ${cards.length > 0 ? `
+                  <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); width:100%; margin-top:${bankAccounts.length > 0 ? '6px' : '0'}; margin-bottom:2px">Cartões de crédito</div>
+                  ${cards.map(c => `
+                    <button type="button" class="acc-chip ${c.name === currentAccount ? 'selected' : ''}"
+                      onclick="ZModals.selectTxAccount('${c.name.replace(/'/g, "\\'")}', this)"
+                      style="--acc-color:${c.color}">
+                      <span class="acc-dot" style="background:${c.color}"></span>${c.name}
+                    </button>
+                  `).join('')}
+                ` : ''}
                 <button type="button" class="acc-chip ${isOther ? 'selected' : ''}" id="acc-chip-other"
-                  onclick="ZModals.showOtherAccount(this)">Outra conta</button>
+                  onclick="ZModals.showOtherAccount(this)">Outra</button>
               </div>
               <input type="text" class="form-input" id="tx-account-other"
                 style="display:${isOther ? 'block' : 'none'}; margin-top:8px"
@@ -1491,7 +1508,118 @@ const ZModals = (function() {
     selectGoalEmoji, selectGoalColor,
     saveGoal, saveContribution,
     finishOnboarding,
-    selectCardColor, saveCard
+    selectCardColor, saveCard,
+    selectAccountColor, saveAccount
   };
+
+  /* ================================================
+     CONTAS BANCÁRIAS
+     ================================================ */
+  function renderAddAccount(params) {
+    const acc = params?.account; // existe se for edição
+    const isEdit = !!acc;
+    const colors = ZAccounts.COLORS;
+    const currentColor = acc?.color || colors[0];
+    const types = ZAccounts.TYPES;
+
+    return `
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h2>🏦 ${isEdit ? 'Editar conta' : 'Nova conta'}</h2>
+        <button class="modal-close" onclick="ZModals.close()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        ${isEdit ? `<input type="hidden" id="acc-edit-id" value="${acc.id}">` : ''}
+
+        <div class="form-group">
+          <label class="form-label">Nome da conta</label>
+          <input type="text" class="form-input" id="acc-name" placeholder="Ex: Nubank, Inter, C6..."
+            value="${isEdit ? acc.name : ''}" autofocus>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-input" id="acc-type">
+            ${Object.entries(types).map(([key, t]) =>
+              `<option value="${key}" ${(isEdit ? acc.type : 'digital') === key ? 'selected' : ''}>${t.emoji} ${t.label}</option>`
+            ).join('')}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Saldo atual (quanto você tem agora)</label>
+          <input type="number" class="form-input" id="acc-balance" placeholder="0,00" step="0.01" min="0"
+            value="${isEdit ? acc.initialBalance : ''}">
+          ${isEdit ? '<div style="font-size:11px; color:var(--text-muted); margin-top:4px">Isso atualiza o saldo inicial. Os lançamentos existentes são mantidos.</div>' : ''}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Cor</label>
+          <input type="hidden" id="acc-color" value="${currentColor}">
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            ${colors.map(c => `
+              <button type="button" onclick="ZModals.selectAccountColor('${c}', this)"
+                style="width:32px; height:32px; border-radius:50%; background:${c}; border:3px solid ${c === currentColor ? '#fff' : 'transparent'}; outline:${c === currentColor ? '2px solid ' + c : 'none'}; cursor:pointer; transition:all 0.15s">
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div id="acc-error" style="color:var(--danger); font-size:13px; display:none; margin-bottom:8px"></div>
+
+        <button class="btn btn-primary" style="width:100%" onclick="ZModals.saveAccount()">
+          ${isEdit ? 'Salvar alterações' : 'Adicionar conta'}
+        </button>
+      </div>
+    `;
+  }
+
+  function selectAccountColor(color, btn) {
+    document.querySelectorAll('#acc-color ~ div button').forEach(b => {
+      b.style.border = '3px solid transparent';
+      b.style.outline = 'none';
+    });
+    btn.style.border = '3px solid white';
+    btn.style.outline = `2px solid ${color}`;
+    document.getElementById('acc-color').value = color;
+  }
+
+  async function saveAccount() {
+    const editId = document.getElementById('acc-edit-id')?.value;
+    const name = document.getElementById('acc-name')?.value?.trim();
+    const type = document.getElementById('acc-type')?.value;
+    const balanceRaw = document.getElementById('acc-balance')?.value;
+    const color = document.getElementById('acc-color')?.value || '#8B5CF6';
+    const initialBalance = parseFloat(balanceRaw) || 0;
+    const errEl = document.getElementById('acc-error');
+
+    if (!name) { errEl.textContent = 'Informe o nome da conta'; errEl.style.display = 'block'; return; }
+    errEl.style.display = 'none';
+
+    try {
+      const account = { name, type, color, initialBalance };
+      if (editId) {
+        await ZDB.updateAccount(editId, account);
+        const idx = (ZApp.state.data.accounts || []).findIndex(a => a.id === editId);
+        if (idx !== -1) ZApp.state.data.accounts[idx] = { ...ZApp.state.data.accounts[idx], ...account };
+        ZApp.state.data.accountsWithBalance = null;
+      } else {
+        const newId = await ZDB.addAccount(account);
+        account.id = newId;
+        ZApp.state.data.accounts = [...(ZApp.state.data.accounts || []), account];
+        ZApp.state.data.accountsWithBalance = null;
+      }
+      ZApp.closeModal();
+      // Recarrega saldos e navega para Contas
+      ZDB.loadAccountsWithBalance().then(accs => {
+        ZApp.state.data.accountsWithBalance = accs;
+        ZApp.navigate('accounts');
+      });
+    } catch(e) {
+      errEl.textContent = e.message; errEl.style.display = 'block';
+    }
+  }
 
 })();

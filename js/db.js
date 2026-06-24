@@ -125,14 +125,15 @@ const ZDB = (function() {
   async function loadAll(currentMonth) {
     await _loadCats();
 
-    const [monthData, assets, debts, futureItems, goals, creditCards, recurringTemplates] = await Promise.all([
+    const [monthData, assets, debts, futureItems, goals, creditCards, recurringTemplates, accounts] = await Promise.all([
       loadMonth(currentMonth),
       loadAssets(),
       loadDebts(),
       loadFutureItems(),
       loadGoals(),
       loadCreditCards(),
-      loadRecurringTemplates()
+      loadRecurringTemplates(),
+      loadAccounts()
     ]);
 
     return {
@@ -143,6 +144,8 @@ const ZDB = (function() {
       goals,
       creditCards,
       recurringTemplates,
+      accounts,
+      accountsWithBalance: null,
       categories: {
         incomes: _catList('income'),
         expenses: _catList('expense')
@@ -352,6 +355,66 @@ const ZDB = (function() {
   /* ================================================
      CREDIT CARDS (CARTÕES DE CRÉDITO)
      ================================================ */
+  /* ================================================
+     ACCOUNTS (Contas bancárias)
+     ================================================ */
+  async function loadAccounts() {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+    const { data } = await _sb.from('accounts').select('*').eq('user_id', uid).order('created_at');
+    return (data || []).map(a => ({
+      id: a.id, name: a.name, type: a.type,
+      color: a.color || '#8B5CF6',
+      initialBalance: parseFloat(a.initial_balance || 0)
+    }));
+  }
+
+  async function loadAccountsWithBalance() {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+    const [accounts, txRes] = await Promise.all([
+      loadAccounts(),
+      _sb.from('transactions').select('account_name, type, amount').eq('user_id', uid)
+    ]);
+    const net = {};
+    (txRes.data || []).forEach(t => {
+      const key = (t.account_name || '').toLowerCase().trim();
+      if (!key) return;
+      if (!net[key]) net[key] = 0;
+      net[key] += t.type === 'income' ? parseFloat(t.amount) : -parseFloat(t.amount);
+    });
+    return accounts.map(a => ({
+      ...a,
+      balance: a.initialBalance + (net[a.name.toLowerCase().trim()] || 0)
+    }));
+  }
+
+  async function addAccount(account) {
+    const uid = ZAuth.getUser()?.id;
+    const { data, error } = await _sb.from('accounts').insert({
+      user_id: uid, name: account.name, type: account.type,
+      color: account.color || '#8B5CF6',
+      initial_balance: account.initialBalance || 0
+    }).select('id').single();
+    if (error) throw new Error(error.message);
+    return data.id;
+  }
+
+  async function updateAccount(id, updates) {
+    const uid = ZAuth.getUser()?.id;
+    const { error } = await _sb.from('accounts').update({
+      name: updates.name, type: updates.type,
+      color: updates.color, initial_balance: updates.initialBalance
+    }).eq('id', id).eq('user_id', uid);
+    if (error) throw new Error(error.message);
+  }
+
+  async function deleteAccount(id) {
+    const uid = ZAuth.getUser()?.id;
+    const { error } = await _sb.from('accounts').delete().eq('id', id).eq('user_id', uid);
+    if (error) throw new Error(error.message);
+  }
+
   async function loadCreditCards() {
     const uid = ZAuth.getUser()?.id;
     if (!uid) return [];
@@ -558,6 +621,7 @@ const ZDB = (function() {
     addDebt, deleteDebt,
     addFutureItem, deleteFutureItem,
     loadGoals, addGoal, updateGoal, deleteGoal,
+    loadAccounts, loadAccountsWithBalance, addAccount, updateAccount, deleteAccount,
     loadCreditCards, addCreditCard, deleteCreditCard, loadCardTransactions,
     loadRecurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
     loadCategoryHistory, loadMonthsSummary

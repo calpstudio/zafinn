@@ -151,6 +151,15 @@ const ZApp = (function() {
       }).catch(() => { state.data.categoryHistory = null; });
     }
 
+    // Carrega contas com saldo ao entrar em Contas
+    if (screen === 'accounts') {
+      state.data.accountsWithBalance = null;
+      ZDB.loadAccountsWithBalance().then(accs => {
+        state.data.accountsWithBalance = accs;
+        if (state.screen === 'accounts') render();
+      }).catch(() => { state.data.accountsWithBalance = []; });
+    }
+
     // Carrega resumo dos meses ao entrar em Configurações
     if (screen === 'settings') {
       state.data.monthsSummary = null;
@@ -246,17 +255,23 @@ const ZApp = (function() {
         label: 'Principal',
         items: [
           { id: 'dashboard',    label: 'Dashboard',    icon: iDashboard() },
-          { id: 'budget',       label: 'Orçamento',    icon: iBudget(),      alert: budgetAlerts },
+          { id: 'accounts',     label: 'Contas',       icon: iAccounts() },
+          { id: 'cards',        label: 'Cartões',      icon: iCards() },
           { id: 'transactions', label: 'Transações',   icon: iTransactions() },
+        ]
+      },
+      {
+        label: 'Análise',
+        items: [
+          { id: 'budget',       label: 'Orçamento',    icon: iBudget(),      alert: budgetAlerts },
           { id: 'comparison',   label: 'Análise',      icon: iAnalysis() },
+          { id: 'cashflow',     label: 'Fluxo Futuro', icon: iCashflow() },
         ]
       },
       {
         label: 'Planejamento',
         items: [
           { id: 'goals',        label: 'Metas',        icon: iGoals() },
-          { id: 'cards',        label: 'Cartões',      icon: iCards() },
-          { id: 'cashflow',     label: 'Fluxo Futuro', icon: iCashflow() },
           { id: 'patrimony',    label: 'Patrimônio',   icon: iPatrimony() },
           { id: 'cs_relatorios',label: 'Relatórios',   icon: iReports() },
         ]
@@ -343,6 +358,7 @@ const ZApp = (function() {
   function getPageInfo(screen) {
     const map = {
       dashboard:    { title: 'Dashboard',      sub: 'Visão geral das suas finanças' },
+      accounts:     { title: 'Contas',          sub: 'Saldo disponível por conta' },
       budget:       { title: 'Orçamento',       sub: 'Planejamento de receitas e despesas' },
       transactions: { title: 'Transações',      sub: 'Todos os lançamentos do mês' },
       comparison:   { title: 'Análise',         sub: 'Orçado x Realizado' },
@@ -509,6 +525,7 @@ const ZApp = (function() {
     let content;
     switch(state.screen) {
       case 'dashboard':    content = ZDashboard.render(state); break;
+      case 'accounts':     content = ZAccounts.render(state); break;
       case 'budget':       content = ZBudget.render(state); break;
       case 'transactions': content = ZTransactions.render(state); break;
       case 'comparison':   content = ZComparison.render(state); break;
@@ -597,6 +614,9 @@ const ZApp = (function() {
   }
   function iCards() {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+  }
+  function iAccounts() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
   }
   function iPlus() {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
