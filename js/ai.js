@@ -165,7 +165,8 @@ Regras:
 - amount: número positivo sem símbolo de moeda
 - category: use exatamente um dos nomes da lista de categorias
 - Inclua TODAS as transações realizadas, sem resumir
-- Ignore: limite, saldo, totais da fatura, dados pessoais, parcelas futuras
+- Ignore completamente: limite, saldo, totais da fatura, dados pessoais, parcelas futuras
+- Ignore pagamentos da fatura: linhas como "Pagamento de Fatura via PIX", "Pagamento via Boleto", "Pagamento via TED" — não são despesas nem receitas reais
 - Restaurantes/lanchonetes → Alimentação
 - Postos de combustível → Transporte
 - Farmácias, hospitais → Saúde
