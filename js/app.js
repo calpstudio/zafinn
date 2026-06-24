@@ -151,6 +151,15 @@ const ZApp = (function() {
       }).catch(() => { state.data.categoryHistory = null; });
     }
 
+    // Carrega resumo dos meses ao entrar em Configurações
+    if (screen === 'settings') {
+      state.data.monthsSummary = null;
+      ZDB.loadMonthsSummary(13).then(summary => {
+        state.data.monthsSummary = summary;
+        if (state.screen === 'settings') render();
+      }).catch(() => { state.data.monthsSummary = []; });
+    }
+
     // Carrega (ou recarrega) transações dos últimos 3 meses ao entrar em Cartões
     if (screen === 'cards') {
       ZDB.loadCardTransactions(3).then(txs => {

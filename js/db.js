@@ -467,6 +467,42 @@ const ZDB = (function() {
   /* ================================================
      HISTÓRICO DE GASTOS POR CATEGORIA (últimos N meses)
      ================================================ */
+  async function loadMonthsSummary(numMonths = 13) {
+    const uid = ZAuth.getUser()?.id;
+    if (!uid) return [];
+
+    const monthKeys = [];
+    const now = new Date();
+    for (let i = numMonths - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+
+    const { data } = await _sb.from('transactions')
+      .select('year_month, type, amount, date')
+      .eq('user_id', uid)
+      .gte('year_month', monthKeys[0])
+      .order('date', { ascending: false });
+
+    const byMonth = {};
+    (data || []).forEach(t => {
+      const ym = t.year_month;
+      if (!byMonth[ym]) byMonth[ym] = { count: 0, income: 0, expense: 0, lastDate: null };
+      byMonth[ym].count++;
+      if (t.type === 'income') byMonth[ym].income += parseFloat(t.amount);
+      else byMonth[ym].expense += parseFloat(t.amount);
+      if (!byMonth[ym].lastDate || t.date > byMonth[ym].lastDate) byMonth[ym].lastDate = t.date;
+    });
+
+    return monthKeys.map(ym => ({
+      month: ym,
+      count: byMonth[ym]?.count || 0,
+      income: byMonth[ym]?.income || 0,
+      expense: byMonth[ym]?.expense || 0,
+      lastDate: byMonth[ym]?.lastDate || null
+    }));
+  }
+
   async function loadCategoryHistory(numMonths) {
     const uid = ZAuth.getUser()?.id;
     if (!uid) return {};
@@ -524,7 +560,7 @@ const ZDB = (function() {
     loadGoals, addGoal, updateGoal, deleteGoal,
     loadCreditCards, addCreditCard, deleteCreditCard, loadCardTransactions,
     loadRecurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
-    loadCategoryHistory
+    loadCategoryHistory, loadMonthsSummary
   };
 
 })();

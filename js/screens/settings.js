@@ -59,6 +59,14 @@ const ZSettings = (function() {
             </div>
 
             <div class="card">
+              <div class="card-header"><h3>📅 Histórico de Lançamentos</h3></div>
+              <div style="padding:8px 0 0; font-size:12px; color:var(--text-muted); padding:10px 16px 4px">
+                Meses com dados (clique para ir direto ao mês)
+              </div>
+              ${_renderMonthsHistory(state.data.monthsSummary)}
+            </div>
+
+            <div class="card">
               <div class="card-header"><h3>⚠️ Zona de Risco</h3></div>
               <div style="padding:14px; background:var(--danger-light); border-radius:var(--radius-sm); margin-bottom:12px">
                 <div style="font-size:13px; color:var(--danger); font-weight:500; margin-bottom:8px">
@@ -136,6 +144,54 @@ const ZSettings = (function() {
     `;
   }
 
+  const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const MONTH_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  function goToMonth(month) {
+    ZApp.state.month = month;
+    ZApp.navigate('transactions');
+  }
+
+  function _renderMonthsHistory(summary) {
+    if (!summary) return `<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px">Carregando...</div>`;
+
+    const currentMonth = ZUtils.getCurrentMonth();
+    const sorted = [...summary].reverse(); // mais recente primeiro
+
+    return `
+      <div style="padding:4px 0 8px">
+        ${sorted.map(s => {
+          const [y, m] = s.month.split('-').map(Number);
+          const label = MONTH_SHORT[m-1] + ' ' + y;
+          const isCurrent = s.month === currentMonth;
+          const hasData = s.count > 0;
+          const lastDateFmt = s.lastDate ? s.lastDate.slice(8,10) + '/' + s.lastDate.slice(5,7) : '';
+
+          return `
+            <div onclick="${hasData ? `ZSettings.goToMonth('${s.month}')` : ''}"
+              style="display:flex; align-items:center; gap:10px; padding:9px 16px; cursor:${hasData ? 'pointer' : 'default'}; border-bottom:1px solid var(--border-light); transition:background 0.1s"
+              ${hasData ? `onmouseover="this.style.background='var(--primary-light)'" onmouseout="this.style.background=''"` : ''}>
+              <div style="width:9px; height:9px; border-radius:50%; flex-shrink:0; background:${hasData ? 'var(--success)' : 'var(--border)'}"></div>
+              <span style="font-size:13px; font-weight:${isCurrent ? '700' : '500'}; color:${hasData ? 'var(--text)' : 'var(--text-muted)'}; min-width:64px">
+                ${label}${isCurrent ? ' ·' : ''}
+              </span>
+              <div style="flex:1">
+                ${hasData
+                  ? `<span style="font-size:12px; font-weight:600; color:var(--primary)">${s.count} lançamento${s.count > 1 ? 's' : ''}</span>
+                     <span style="font-size:11px; color:var(--text-muted); margin-left:6px">– R$ ${s.expense.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})}</span>`
+                  : `<span style="font-size:12px; color:var(--text-muted)">Sem lançamentos</span>`
+                }
+              </div>
+              ${hasData ? `<span style="font-size:11px; color:var(--text-muted)">${lastDateFmt}</span>
+                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" style="color:var(--text-muted)"><polyline points="9 18 15 12 9 6"/></svg>`
+                        : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
   function settingsItem(icon, iconBg, title, sub, onclick) {
     return `
       <div class="settings-item" ${onclick ? `onclick="${onclick}"` : ''} style="cursor:${onclick ? 'pointer' : 'default'}">
@@ -179,6 +235,14 @@ const ZSettings = (function() {
             ${settingsItem('📐', '#ECFDF5', 'Gabarito Financeiro', 'Percentuais ideais por categoria', "ZApp.openModal('editBenchmarks', {})")}
             <div style="border-top:1px solid var(--border-light)"></div>
             ${settingsItem('📂', '#FFF7ED', 'Importar Extrato', 'CSV (Nubank, Inter) ou OFX', "ZApp.openModal('importTransactions', {})")}
+          </div>
+        </div>
+
+        <div style="padding:10px 16px 6px">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:6px">Histórico de Lançamentos</div>
+          <div style="background:var(--card); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm)">
+            <div style="padding:10px 16px 4px; font-size:12px; color:var(--text-muted)">Meses com dados · toque para abrir</div>
+            ${_renderMonthsHistory(state.data.monthsSummary)}
           </div>
         </div>
 
@@ -252,6 +316,6 @@ const ZSettings = (function() {
     ZApp.render();
   }
 
-  return { render, resetData, saveClaudeKey, saveClaudeKeyMobile };
+  return { render, resetData, saveClaudeKey, saveClaudeKeyMobile, goToMonth };
 
 })();
