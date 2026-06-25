@@ -1,5 +1,5 @@
 // ZAFINN — Edge Function: Proxy para API Claude
-// Suporta texto simples e arquivos (PDF, imagem) via Vision
+// Suporta texto simples, arquivos (PDF, imagem), chat com histórico e system prompt
 // Deploy: Supabase Dashboard > Edge Functions > ai-analyze
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -15,7 +15,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { apiKey, prompt, model, fileBase64, mimeType } = await req.json();
+    const { apiKey, prompt, model, fileBase64, mimeType, messages: historyMessages, systemPrompt } = await req.json();
 
     if (!apiKey) {
       return new Response(
@@ -26,9 +26,12 @@ serve(async (req: Request) => {
 
     let messages;
 
-    if (fileBase64 && mimeType) {
+    if (historyMessages && Array.isArray(historyMessages)) {
+      // Modo chat: usa histórico de mensagens passado
+      messages = historyMessages;
+    } else if (fileBase64 && mimeType) {
+      // Modo arquivo: PDF ou imagem
       const isImage = mimeType.startsWith("image/");
-
       const fileBlock = isImage
         ? { type: "image", source: { type: "base64", media_type: mimeType, data: fileBase64 } }
         : { type: "document", source: { type: "base64", media_type: "application/pdf", data: fileBase64 } };
@@ -38,10 +41,10 @@ serve(async (req: Request) => {
         content: [fileBlock, { type: "text", text: prompt }],
       }];
     } else {
+      // Modo texto simples
       messages = [{ role: "user", content: prompt }];
     }
 
-    // Header beta obrigatório para PDFs
     const isPdf = fileBase64 && mimeType === "application/pdf";
     const anthropicHeaders: Record<string, string> = {
       "x-api-key": apiKey,
@@ -52,14 +55,20 @@ serve(async (req: Request) => {
       anthropicHeaders["anthropic-beta"] = "pdfs-2024-09-25";
     }
 
+    const body: Record<string, unknown> = {
+      model: model || "claude-haiku-4-5-20251001",
+      max_tokens: 8192,
+      messages,
+    };
+
+    if (systemPrompt) {
+      body.system = systemPrompt;
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: anthropicHeaders,
-      body: JSON.stringify({
-        model: model || "claude-haiku-4-5-20251001",
-        max_tokens: 8192,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();

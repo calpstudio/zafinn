@@ -114,6 +114,7 @@ const ZApp = (function() {
 
     state.data = await ZDB.loadAll(state.month);
     render();
+    ZChat.init();
 
     // Onboarding: mostrar uma vez para novos usuários
     if (!localStorage.getItem('zafinn_onboarded')) {

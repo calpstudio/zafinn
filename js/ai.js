@@ -206,6 +206,81 @@ Regras:
     return null;
   }
 
-  return { getKey, setKey, hasKey, analyzeMonth, categorize, extractFromFile };
+  /* ================================================
+     ASSISTENTE DE CHAT
+     ================================================ */
+  async function chat(history, userMessage, financialContext) {
+    const apiKey = getKey();
+    if (!apiKey) throw new Error('Configure sua chave Claude nas Configurações.');
+
+    const systemPrompt = `Você é o assistente financeiro pessoal do app ZAFINN. Fala português brasileiro, é direto, amigável e útil.
+
+Você tem acesso aos dados financeiros do usuário e pode executar ações reais no app.
+
+DADOS FINANCEIROS ATUAIS:
+${financialContext}
+
+AÇÕES QUE VOCÊ PODE EXECUTAR:
+Quando o usuário pedir uma ação, responda com JSON neste formato:
+{"message": "texto para o usuário", "action": {"type": "TIPO", "data": {...}}}
+
+Tipos de ação:
+- addTransaction: {"type": "addTransaction", "data": {"description": "...", "amount": 0.00, "type": "expense|income", "category": "...", "account": "...", "date": "YYYY-MM-DD"}}
+- deleteTransaction: {"type": "deleteTransaction", "data": {"description": "parte do nome"}}
+- navigate: {"type": "navigate", "data": {"screen": "dashboard|transactions|accounts|cards|budget"}}
+- openImport: {"type": "openImport", "data": {}}
+
+Se não houver ação, responda só com: {"message": "sua resposta"}
+
+REGRAS:
+- Use os dados reais do usuário nas respostas
+- Para lançamentos sem data, use hoje
+- Se a conta não for especificada e houver dúvida, pergunte
+- Valores monetários: sempre use formato brasileiro (R$ 1.234,56)
+- Seja conciso — máximo 3 parágrafos
+- Confirme ações executadas de forma clara`;
+
+    const messages = [
+      ...history.map(h => ({ role: h.role, content: h.content })),
+      { role: 'user', content: userMessage }
+    ];
+
+    const { data, error } = await _sb.functions.invoke('ai-analyze', {
+      body: {
+        apiKey,
+        model: 'claude-haiku-4-5-20251001',
+        prompt: userMessage,
+        messages,
+        systemPrompt
+      }
+    });
+
+    if (error) throw new Error('Erro: ' + error.message);
+    if (data?.error) throw new Error(data.error.message || 'Erro da API.');
+
+    const text = (data?.content?.[0]?.text || '').trim();
+
+    // Tenta parsear como JSON (quando há ação)
+    try {
+      const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.message) return parsed;
+    } catch {}
+
+    // Tenta encontrar JSON no texto
+    const start = text.indexOf('{');
+    const end   = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        if (parsed.message) return parsed;
+      } catch {}
+    }
+
+    // Resposta pura de texto
+    return { message: text };
+  }
+
+  return { getKey, setKey, hasKey, analyzeMonth, categorize, extractFromFile, chat };
 
 })();
