@@ -252,14 +252,17 @@ const ZCards = (function() {
     return `
       <div class="invoice-tx-list">
         ${shown.map(tx => `
-          <div class="invoice-tx-row">
-            <div class="tx-info">
+          <div class="invoice-tx-row" style="display:flex; align-items:center; gap:8px">
+            <div class="tx-info" style="flex:1; min-width:0">
               <span class="tx-cat">${tx.category}</span>
               <span class="tx-desc">${tx.description}</span>
             </div>
-            <div class="tx-right">
+            <div class="tx-right" style="display:flex; align-items:center; gap:8px; flex-shrink:0">
               <span class="tx-date">${_fmtDate(tx.date)}</span>
               <span class="tx-val">${_fmt(tx.amount)}</span>
+              <button onclick="ZCards.deleteTx('${tx.id}')"
+                style="background:none; border:none; cursor:pointer; padding:2px 4px; color:var(--text-muted); font-size:14px; line-height:1; border-radius:4px; flex-shrink:0"
+                title="Excluir lançamento">×</button>
             </div>
           </div>
         `).join('')}
@@ -285,6 +288,20 @@ const ZCards = (function() {
   }
 
   /* ---------- Ações ---------- */
+  async function deleteTx(id) {
+    if (!confirm('Excluir este lançamento?')) return;
+    try {
+      await ZDB.deleteTransaction(id);
+      // Remove de todas as fontes do state local
+      const state = ZApp.state;
+      Object.values(state.data.months || {}).forEach(m => {
+        m.transactions = (m.transactions || []).filter(t => t.id !== id);
+      });
+      state.data.cardTransactions = (state.data.cardTransactions || []).filter(t => t.id !== id);
+      ZApp.render();
+    } catch(e) { alert(e.message); }
+  }
+
   async function deleteCard(id) {
     if (!confirm('Remover este cartão? Os lançamentos não serão apagados.')) return;
     try {
@@ -294,6 +311,6 @@ const ZCards = (function() {
     } catch(e) { alert(e.message); }
   }
 
-  return { render, deleteCard, toggleExpand, CARD_COLORS };
+  return { render, deleteCard, deleteTx, toggleExpand, CARD_COLORS };
 
 })();

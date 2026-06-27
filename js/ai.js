@@ -168,8 +168,17 @@ Categorias disponíveis: ${catList}
 
 === IGNORAR COMPLETAMENTE ===
 - "Pagamento de Fatura via PIX", "Pagamento via Boleto", "Pagamento via TED" — não são despesas
+- "SALDO FATURA ANTERIOR" — é referência de saldo, não é transação
+- Linhas com valor "-" ou em branco — sem valor monetário real
 - Linhas de totais, subtotais, limites, saldo disponível
 - Cabeçalhos de seção
+
+=== FORMATOS DE PARCELA ===
+Bancos brasileiros usam notações diferentes para parcelas — todas significam "parcela X de Y":
+- BV/Itaú: "Nome Loja 11/12" (espaço antes da notação)
+- Carrefour/CSF: "NOME LOJA,CIDADE-7/8" (hífen colado com a cidade antes da notação)
+- Santander: "Nome 02/06"
+Em todos os casos, X/Y ao final NÃO É DATA — é parcela X de Y. Inclua a notação no nome.
 
 === FORMATO DE SAÍDA ===
 Retorne APENAS JSON válido, sem nenhum texto antes ou depois:
