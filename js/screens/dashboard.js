@@ -10,6 +10,36 @@ const ZDashboard = (function() {
     return ZApp.isDesktop() ? renderDesktop(state) : renderMobile(state);
   }
 
+  function _setupBanner(state, totals) {
+    const hasIncome  = totals.realIncome > 0;
+    const hasExpense = totals.realExpense > 0;
+    const hasBudget  = totals.budgetExpense > 0;
+    const hasCards   = (state.data.creditCards || []).length > 0;
+    if (hasIncome && hasBudget) return '';
+
+    const steps = [
+      { label: 'Cartões',   done: hasCards,   action: "ZApp.navigate('cards')" },
+      { label: 'Despesas',  done: hasExpense,  action: "ZApp.navigate('transactions')" },
+      { label: 'Receitas',  done: hasIncome,   action: "ZApp.openModal('addTransaction', {type:'income'})" },
+      { label: 'Orçamento', done: hasBudget,   action: "ZApp.navigate('budget')" },
+    ];
+
+    return `
+      <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE); border:1px solid #BFDBFE; border-left:4px solid #3B82F6; border-radius:12px; padding:14px 16px; margin-bottom:16px">
+        <div style="font-size:13px; font-weight:700; color:#1E40AF; margin-bottom:10px">📋 Configure seu mês</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          ${steps.map(s => `
+            <button onclick="${s.done ? '' : s.action}"
+              style="display:flex; align-items:center; gap:5px; padding:5px 12px; border-radius:20px; border:1px solid ${s.done ? '#BBF7D0' : '#BFDBFE'}; background:${s.done ? '#DCFCE7' : 'white'}; color:${s.done ? '#166534' : '#1D4ED8'}; font-size:12px; font-weight:600; cursor:${s.done ? 'default' : 'pointer'}">
+              ${s.done ? '✓' : '+'} ${s.label}
+            </button>
+          `).join('')}
+        </div>
+        ${!hasIncome ? `<div style="font-size:11px; color:#3B82F6; margin-top:8px">💡 Adicione suas receitas para ver % poupado, diagnóstico e análise completa</div>` : ''}
+      </div>
+    `;
+  }
+
   /* ================================================
      VERSÃO DESKTOP
      ================================================ */
@@ -33,6 +63,8 @@ const ZDashboard = (function() {
     return `
       <div class="screen-content">
 
+        ${_setupBanner(state, totals)}
+
         <!-- Linha 1: KPI cards -->
         <div class="kpi-grid">
           <div class="kpi-card income">
@@ -54,11 +86,13 @@ const ZDashboard = (function() {
           <div class="kpi-card balance ${balance < 0 ? 'negative' : ''}">
             <div class="kpi-icon">${balance >= 0 ? '💰' : '⚠️'}</div>
             <div class="kpi-label">Saldo do Mês</div>
-            <div class="kpi-value">${ZUtils.formatCurrencyShort(balance)}</div>
+            <div class="kpi-value">${totals.realIncome === 0 ? '—' : ZUtils.formatCurrencyShort(balance)}</div>
             <div class="kpi-sub">
-              <span style="color:${savingsPct >= 10 ? 'var(--success)' : 'var(--warning)'}">
-                ${savingsPct >= 0 ? savingsPct + '% poupado' : 'Déficit'}
-              </span>
+              ${totals.realIncome === 0
+                ? `<span style="color:var(--text-muted)">Sem receitas lançadas</span>`
+                : `<span style="color:${savingsPct >= 10 ? 'var(--success)' : 'var(--warning)'}">
+                    ${savingsPct >= 0 ? savingsPct + '% poupado' : 'Déficit'}
+                  </span>`}
             </div>
           </div>
           <div class="kpi-card neutral">
@@ -235,6 +269,18 @@ const ZDashboard = (function() {
             <!-- Indicadores -->
             <div class="card">
               <div class="card-header"><h3>Indicadores do Mês</h3></div>
+              ${totals.realIncome === 0 ? `
+                <div style="padding:12px 0; text-align:center; color:var(--text-muted); font-size:13px">
+                  <div style="font-size:24px; margin-bottom:8px">📊</div>
+                  Indicadores disponíveis após<br>adicionar receitas do mês
+                  <div style="margin-top:12px">
+                    <button onclick="ZApp.openModal('addTransaction', {type:'income'})"
+                      style="padding:7px 16px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer">
+                      + Adicionar Receita
+                    </button>
+                  </div>
+                </div>
+              ` : `
               <div class="progress-item">
                 <div class="prog-header">
                   <span class="prog-label">💸 Gastos / Receita</span>
@@ -258,6 +304,7 @@ const ZDashboard = (function() {
                 </div>
                 <div class="progress-bar"><div class="fill ${budgetUsedPct > 100 ? 'red' : 'blue'}" style="width:${Math.min(budgetUsedPct, 100)}%"></div></div>
               </div>` : ''}
+              `}
             </div>
 
             <!-- Diagnóstico automático -->
@@ -318,14 +365,16 @@ const ZDashboard = (function() {
       </div>
       <div class="screen-content">
 
+        ${_setupBanner(state, totals)}
+
         <!-- Saldo hero -->
         <div class="balance-hero">
           <div class="hero-label">Saldo do Mês</div>
-          <div class="hero-value">${ZUtils.formatCurrency(balance)}</div>
+          <div class="hero-value">${totals.realIncome === 0 ? ZUtils.formatCurrency(totals.realExpense * -1) : ZUtils.formatCurrency(balance)}</div>
           <div class="hero-row">
-            <div class="hero-item"><div class="item-label">↑ Receitas</div><div class="item-value">${ZUtils.formatCurrencyShort(totals.realIncome)}</div></div>
+            <div class="hero-item"><div class="item-label">↑ Receitas</div><div class="item-value">${totals.realIncome > 0 ? ZUtils.formatCurrencyShort(totals.realIncome) : '—'}</div></div>
             <div class="hero-item"><div class="item-label">↓ Despesas</div><div class="item-value">${ZUtils.formatCurrencyShort(totals.realExpense)}</div></div>
-            <div class="hero-item"><div class="item-label">💰 Poupado</div><div class="item-value">${savingsPct}%</div></div>
+            <div class="hero-item"><div class="item-label">💰 Poupado</div><div class="item-value">${totals.realIncome > 0 ? savingsPct + '%' : '—'}</div></div>
           </div>
         </div>
 
@@ -351,6 +400,7 @@ const ZDashboard = (function() {
 
         <!-- Progresso -->
         <div class="spacer-sm"></div>
+        ${totals.realIncome > 0 ? `
         <div class="card">
           <div class="card-title">Progresso do Mês</div>
           <div class="progress-item">
@@ -361,7 +411,7 @@ const ZDashboard = (function() {
             <div class="prog-header"><span class="prog-label">💰 Taxa de poupança</span><span class="prog-value">${Math.max(0,savingsPct)}%</span></div>
             <div class="progress-bar"><div class="fill green" style="width:${Math.max(0, Math.min(savingsPct, 100))}%"></div></div>
           </div>
-        </div>
+        </div>` : ''}
 
         <!-- Maiores gastos -->
         ${catSorted.length > 0 ? `
