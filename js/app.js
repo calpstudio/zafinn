@@ -170,9 +170,9 @@ const ZApp = (function() {
       }).catch(() => { state.data.monthsSummary = []; });
     }
 
-    // Carrega (ou recarrega) transações dos últimos 3 meses ao entrar em Cartões
+    // Carrega (ou recarrega) transações dos últimos 24 meses ao entrar em Cartões
     if (screen === 'cards') {
-      ZDB.loadCardTransactions(3).then(txs => {
+      ZDB.loadCardTransactions(24).then(txs => {
         state.data.cardTransactions = txs;
         if (state.screen === 'cards') render();
       }).catch(() => { state.data.cardTransactions = []; });
