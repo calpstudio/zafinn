@@ -1024,21 +1024,35 @@ const ZModals = (function() {
       cardBillMonthFixed = _cardBillMonth(latestDate || (month + '-01'), cardData.closing_day);
     }
 
+    // Para imports sem cartão, detecta o mês real das transações ANTES de salvar.
+    // Evita usar o mês da tela como fallback quando o usuário está em outro mês.
+    let detectedFallbackMonth = month;
+    if (!cardData) {
+      const parsedMonths = _importedTxs
+        .map(t => { const d = ZImport.parseDate(t.date || ''); return d ? d.substring(0, 7) : null; })
+        .filter(Boolean);
+      if (parsedMonths.length > 0) {
+        const freq = {};
+        parsedMonths.forEach(m => { freq[m] = (freq[m] || 0) + 1; });
+        detectedFallbackMonth = Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+      }
+    }
+
     for (let i = 0; i < _importedTxs.length; i++) {
       const t = _importedTxs[i];
       if (skipDups && _duplicateFlags[i]) { skipped++; continue; }
       try {
         if (msgEl) msgEl.textContent = `Importando ${saved + 1} de ${_importedTxs.length}...`;
 
-        // Normaliza a data para YYYY-MM-DD
-        const txDate = ZImport.parseDate(t.date || '') || (month + '-01');
+        // Normaliza a data para YYYY-MM-DD — fallback usa o mês detectado do documento
+        const txDate = ZImport.parseDate(t.date || '') || (detectedFallbackMonth + '-01');
 
         // Se tem cartão, usa o mês de fatura fixo do extrato (não recalcula por parcela)
         let txMonth;
         if (cardData) {
           txMonth = cardBillMonthFixed;
         } else {
-          txMonth = txDate.substring(0, 7) || month;
+          txMonth = txDate.substring(0, 7) || detectedFallbackMonth;
         }
 
         const newTx = {
