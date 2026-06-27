@@ -178,7 +178,7 @@ Retorne APENAS JSON válido, sem nenhum texto antes ou depois:
 Regras finais:
 - type "expense" para compras/débitos · type "income" APENAS para estornos/devoluções de estabelecimentos
 - Estornos/devoluções → category "Estorno/Devolução"
-- Repasse de IOF, Seguro Cartão → category "Tarifas Bancárias", type "expense"
+- Repasse de IOF, Seguro Cartão, Encargos do Rotativo, Encargos de Parcelamento, Multa, Mora → category "Tarifas Bancárias", type "expense"
 - Restaurantes, lanchonetes, delivery → Alimentação
 - Postos de combustível, pedágio, Uber, ônibus → Transporte
 - Farmácias, hospitais, planos de saúde → Saúde
@@ -186,7 +186,7 @@ Regras finais:
 - amount: número positivo, sem R$ ou pontos de milhar`;
 
     const { data, error } = await _sb.functions.invoke('ai-analyze', {
-      body: { apiKey, prompt, model: 'claude-haiku-4-5-20251001', fileBase64, mimeType }
+      body: { apiKey, prompt, model: 'claude-sonnet-4-6', fileBase64, mimeType }
     });
 
     if (error) throw new Error('Erro na função: ' + error.message);
