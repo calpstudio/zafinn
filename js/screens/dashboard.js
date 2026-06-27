@@ -10,8 +10,8 @@ const ZDashboard = (function() {
     return ZApp.isDesktop() ? renderDesktop(state) : renderMobile(state);
   }
 
-  function _setupBanner(state, totals) {
-    const hasIncome  = totals.realIncome > 0;
+  function _setupBanner(state, totals, hasRealIncome) {
+    const hasIncome  = hasRealIncome;
     const hasExpense = totals.realExpense > 0;
     const hasBudget  = totals.budgetExpense > 0;
     const hasCards   = (state.data.creditCards || []).length > 0;
@@ -52,9 +52,15 @@ const ZDashboard = (function() {
     const recentTx = (data.months[month]?.transactions || []).slice(0, 8);
     const diagnosis = ZUtils.generateDiagnosis(data, month);
 
+    // Receita real = exclui estornos de cartão (categoria Estorno/Devolução)
+    const realSalaryIncome = (data.months[month]?.transactions || [])
+      .filter(t => t.type === 'income' && t.category !== 'Estorno/Devolução')
+      .reduce((s, t) => s + t.amount, 0);
+    const hasRealIncome = realSalaryIncome > 0;
+
     const balance = totals.realIncome - totals.realExpense;
-    const savingsPct = totals.realIncome > 0 ? ZUtils.pct(balance, totals.realIncome) : 0;
-    const spentPct = totals.realIncome > 0 ? ZUtils.pct(totals.realExpense, totals.realIncome) : 0;
+    const savingsPct = hasRealIncome ? ZUtils.pct(realSalaryIncome - totals.realExpense, realSalaryIncome) : 0;
+    const spentPct = hasRealIncome ? ZUtils.pct(totals.realExpense, realSalaryIncome) : 0;
     const budgetUsedPct = totals.budgetExpense > 0 ? ZUtils.pct(totals.realExpense, totals.budgetExpense) : 0;
 
     const catSorted = Object.entries(catReal).sort((a, b) => b[1] - a[1]).slice(0, 7);
@@ -63,14 +69,14 @@ const ZDashboard = (function() {
     return `
       <div class="screen-content">
 
-        ${_setupBanner(state, totals)}
+        ${_setupBanner(state, totals, hasRealIncome)}
 
         <!-- Linha 1: KPI cards -->
         <div class="kpi-grid">
           <div class="kpi-card income">
             <div class="kpi-icon">💵</div>
             <div class="kpi-label">Receita do Mês</div>
-            <div class="kpi-value">${ZUtils.formatCurrencyShort(totals.realIncome)}</div>
+            <div class="kpi-value">${hasRealIncome ? ZUtils.formatCurrencyShort(realSalaryIncome) : '—'}</div>
             <div class="kpi-sub">
               ${totals.budgetIncome > 0 ? `<span>Orçado: ${ZUtils.formatCurrencyShort(totals.budgetIncome)}</span>` : '<span>Nenhum orçamento</span>'}
             </div>
@@ -83,12 +89,12 @@ const ZDashboard = (function() {
               ${totals.budgetExpense > 0 ? `<span>Orçado: ${ZUtils.formatCurrencyShort(totals.budgetExpense)}</span>` : '<span>Nenhum orçamento</span>'}
             </div>
           </div>
-          <div class="kpi-card balance ${balance < 0 ? 'negative' : ''}">
-            <div class="kpi-icon">${balance >= 0 ? '💰' : '⚠️'}</div>
+          <div class="kpi-card balance ${hasRealIncome && balance < 0 ? 'negative' : ''}">
+            <div class="kpi-icon">${hasRealIncome ? (balance >= 0 ? '💰' : '⚠️') : '💰'}</div>
             <div class="kpi-label">Saldo do Mês</div>
-            <div class="kpi-value">${totals.realIncome === 0 ? '—' : ZUtils.formatCurrencyShort(balance)}</div>
+            <div class="kpi-value">${hasRealIncome ? ZUtils.formatCurrencyShort(realSalaryIncome - totals.realExpense) : '—'}</div>
             <div class="kpi-sub">
-              ${totals.realIncome === 0
+              ${!hasRealIncome
                 ? `<span style="color:var(--text-muted)">Sem receitas lançadas</span>`
                 : `<span style="color:${savingsPct >= 10 ? 'var(--success)' : 'var(--warning)'}">
                     ${savingsPct >= 0 ? savingsPct + '% poupado' : 'Déficit'}
@@ -269,7 +275,7 @@ const ZDashboard = (function() {
             <!-- Indicadores -->
             <div class="card">
               <div class="card-header"><h3>Indicadores do Mês</h3></div>
-              ${totals.realIncome === 0 ? `
+              ${!hasRealIncome ? `
                 <div style="padding:12px 0; text-align:center; color:var(--text-muted); font-size:13px">
                   <div style="font-size:24px; margin-bottom:8px">📊</div>
                   Indicadores disponíveis após<br>adicionar receitas do mês
@@ -346,9 +352,15 @@ const ZDashboard = (function() {
     const netWorth = ZData.getNetWorth(data);
     const recentTx = (data.months[month]?.transactions || []).slice(0, 5);
     const monthName = ZUtils.getMonthName(month);
-    const balance = totals.realIncome - totals.realExpense;
-    const savingsPct = totals.realIncome > 0 ? ZUtils.pct(balance, totals.realIncome) : 0;
-    const spentPct = totals.realIncome > 0 ? ZUtils.pct(totals.realExpense, totals.realIncome) : 0;
+
+    const realSalaryIncome = (data.months[month]?.transactions || [])
+      .filter(t => t.type === 'income' && t.category !== 'Estorno/Devolução')
+      .reduce((s, t) => s + t.amount, 0);
+    const hasRealIncome = realSalaryIncome > 0;
+
+    const balance = realSalaryIncome - totals.realExpense;
+    const savingsPct = hasRealIncome ? ZUtils.pct(balance, realSalaryIncome) : 0;
+    const spentPct = hasRealIncome ? ZUtils.pct(totals.realExpense, realSalaryIncome) : 0;
     const catSorted = Object.entries(catReal).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     return `
@@ -365,16 +377,16 @@ const ZDashboard = (function() {
       </div>
       <div class="screen-content">
 
-        ${_setupBanner(state, totals)}
+        ${_setupBanner(state, totals, hasRealIncome)}
 
         <!-- Saldo hero -->
         <div class="balance-hero">
           <div class="hero-label">Saldo do Mês</div>
-          <div class="hero-value">${totals.realIncome === 0 ? ZUtils.formatCurrency(totals.realExpense * -1) : ZUtils.formatCurrency(balance)}</div>
+          <div class="hero-value">${hasRealIncome ? ZUtils.formatCurrency(balance) : '—'}</div>
           <div class="hero-row">
-            <div class="hero-item"><div class="item-label">↑ Receitas</div><div class="item-value">${totals.realIncome > 0 ? ZUtils.formatCurrencyShort(totals.realIncome) : '—'}</div></div>
+            <div class="hero-item"><div class="item-label">↑ Receitas</div><div class="item-value">${hasRealIncome ? ZUtils.formatCurrencyShort(realSalaryIncome) : '—'}</div></div>
             <div class="hero-item"><div class="item-label">↓ Despesas</div><div class="item-value">${ZUtils.formatCurrencyShort(totals.realExpense)}</div></div>
-            <div class="hero-item"><div class="item-label">💰 Poupado</div><div class="item-value">${totals.realIncome > 0 ? savingsPct + '%' : '—'}</div></div>
+            <div class="hero-item"><div class="item-label">💰 Poupado</div><div class="item-value">${hasRealIncome ? savingsPct + '%' : '—'}</div></div>
           </div>
         </div>
 
