@@ -131,7 +131,7 @@ const ZCards = (function() {
 
     const curKey = _currentKey(card.closing_day);
     const prevKey = _prevKey(card.closing_day);
-    const _txBillKey = tx => tx.yearMonth || _billKey(tx.date, card.closing_day);
+    const _txBillKey = tx => tx.yearMonth || tx.year_month || _billKey(tx.date, card.closing_day);
 
     // Monta lista unificada de todos os períodos (atual + anteriores com dados)
     const periodSet = new Set([curKey, prevKey]);

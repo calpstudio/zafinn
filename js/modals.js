@@ -1098,7 +1098,8 @@ const ZModals = (function() {
           type: t.type,
           category: t.category || 'Outros',
           account: selectedCard,
-          notes: 'Importado'
+          notes: 'Importado',
+          yearMonth: txMonth
         };
         await ZDB.addTransaction(txMonth, newTx);
 
