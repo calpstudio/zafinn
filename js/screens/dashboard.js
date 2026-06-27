@@ -52,9 +52,9 @@ const ZDashboard = (function() {
     const recentTx = (data.months[month]?.transactions || []).slice(0, 8);
     const diagnosis = ZUtils.generateDiagnosis(data, month);
 
-    // Receita real = exclui estornos de cartão (categoria Estorno/Devolução)
+    // Receita real = income adicionado manualmente (não importado de fatura)
     const realSalaryIncome = (data.months[month]?.transactions || [])
-      .filter(t => t.type === 'income' && t.category !== 'Estorno/Devolução')
+      .filter(t => t.type === 'income' && t.notes !== 'Importado')
       .reduce((s, t) => s + t.amount, 0);
     const hasRealIncome = realSalaryIncome > 0;
 
