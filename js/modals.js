@@ -763,16 +763,35 @@ const ZModals = (function() {
   }
 
   function renderImport(params) {
+    const isFatura = !!(params && params.fromCards);
     return `
       <div class="modal-handle"></div>
       <div class="modal-header">
-        <h2>📂 Importar Extrato</h2>
+        <h2>${isFatura ? '💳 Importar Fatura de Cartão' : '📂 Importar Extrato Bancário'}</h2>
         <button class="modal-close" onclick="ZModals.close()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <div id="import-step-1">
+          ${isFatura ? `
+          <div style="display:flex; flex-direction:column; gap:10px">
+            <!-- PDF / Imagem — opção principal para fatura -->
+            <div class="import-dropzone" id="import-dropzone" style="border-color:var(--primary); background:rgba(93,214,44,0.04)"
+              ondragover="event.preventDefault(); this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="event.preventDefault(); this.classList.remove('drag-over'); ZModals.handleImportFile({target:{files:event.dataTransfer.files}})">
+              <div style="font-size:44px; margin-bottom:10px">📄</div>
+              <div style="font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px">PDF ou imagem da fatura</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px">Arraste aqui ou clique para selecionar · a IA lê automaticamente</div>
+              <input type="file" id="import-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.ofx,.txt" style="display:none" onchange="ZModals.handleImportFile(event)">
+              <button class="btn btn-primary" onclick="document.getElementById('import-file-input').click()">
+                Selecionar PDF ou Imagem
+              </button>
+              <div style="margin-top:12px; font-size:11px; color:var(--text-muted)">PDF · JPG · PNG · WebP</div>
+            </div>
+          </div>
+          ` : `
           <div class="import-dropzone" id="import-dropzone"
             ondragover="event.preventDefault(); this.classList.add('drag-over')"
             ondragleave="this.classList.remove('drag-over')"
@@ -786,9 +805,10 @@ const ZModals = (function() {
             </button>
             <div style="margin-top:14px; font-size:11px; color:var(--text-muted); line-height:1.8">
               <span style="color:var(--success); font-weight:600">Grátis:</span> CSV · OFX<br>
-              <span style="color:var(--purple); font-weight:600">✨ Com IA:</span> PDF · JPG · PNG (fatura de qualquer cartão)
+              <span style="color:var(--purple); font-weight:600">✨ Com IA:</span> PDF · JPG · PNG
             </div>
           </div>
+          `}
         </div>
 
         <div id="import-step-2" style="display:none">
