@@ -141,38 +141,49 @@ Responda APENAS com um JSON válido no formato:
 
     const hoje = new Date().toLocaleDateString('pt-BR');
     const anoAtual = new Date().getFullYear();
-    const prompt = `Você é um especialista em extratos bancários e faturas de cartão de crédito brasileiros.
+    const anoAnterior = anoAtual - 1;
+    const prompt = `Você é um especialista em faturas de cartão de crédito brasileiras. Sua tarefa é extrair TODAS as linhas de transação desta fatura, sem pular nenhuma.
 
-Analise este documento e extraia as transações REALIZADAS no período da fatura.
-
-CONTEXTO: Hoje é ${hoje}. O ano atual é ${anoAtual}.
+CONTEXTO: Hoje é ${hoje}. Ano atual: ${anoAtual}.
 
 Categorias disponíveis: ${catList}
 
-INSTRUÇÕES CRÍTICAS PARA DATAS:
-- O ano atual é ${anoAtual}. Use ${anoAtual} para datas sem ano explícito, a menos que a fatura indique claramente outro ano.
-- No Brasil, o formato é DD/MM/AAAA: "19/05" = dia 19 de maio de ${anoAtual}
-- NÃO use 2024 nem outros anos passados sem motivo — esta é uma fatura atual
-- Se a fatura mostrar "vencimento: 15/06/${anoAtual}", todas as transações são do período desse ano
-- NÃO confunda dia e mês: "19/05" = dia 19, mês 05 (maio) — nunca inverta
-- Extraia apenas transações JÁ REALIZADAS. IGNORE seções de "Próximas Parcelas", "Parcelas Futuras" ou débitos futuros
+=== COMO FUNCIONA UMA FATURA DE CARTÃO BRASILEIRO ===
 
-Retorne APENAS um JSON válido, sem texto adicional:
-{"transactions": [{"date": "YYYY-MM-DD", "description": "Nome do estabelecimento", "amount": 0.00, "type": "expense", "category": "Categoria"}]}
+1. CADA LINHA DA FATURA = UMA TRANSAÇÃO NO JSON. Não agrupe, não resuma, não pule.
 
-Regras:
-- type: "expense" para compras, débitos, saques · "income" APENAS para estornos e devoluções reais de estabelecimentos
-- amount: número positivo sem símbolo de moeda
-- category: use exatamente um dos nomes da lista de categorias
-- Inclua TODAS as transações realizadas, sem resumir
-- Ignore completamente: limite, saldo, totais da fatura, dados pessoais, parcelas futuras
-- Ignore pagamentos da fatura: linhas como "Pagamento de Fatura via PIX", "Pagamento via Boleto", "Pagamento via TED" — não são despesas nem receitas reais
-- Estornos e devoluções de estabelecimentos: type "income", category "Estorno/Devolução" — NÃO usar categoria de receita normal
-- Repasse de IOF, Seguro Cartão, tarifas bancárias → type "expense", category "Tarifas Bancárias"
-- Restaurantes/lanchonetes → Alimentação
-- Postos de combustível → Transporte
-- Farmácias, hospitais → Saúde
-- Salário, transferência recebida → Salário ou Renda Extra`;
+2. NOTAÇÃO DE PARCELAS — "06/12" no nome NÃO É DATA. Significa "parcela 6 de 12".
+   Exemplos: "MonalizaAlves 11/12" = parcela 11 de 12. "Mercadopago 08/12" = parcela 8 de 12.
+   Extraia normalmente como despesa com o nome completo incluindo a notação de parcela.
+
+3. DATAS DE COMPRA — a data mostrada (ex: "24/04", "16/07") é quando a compra foi feita.
+   Pode ser de meses ou anos anteriores ao vencimento da fatura. Determine o ano assim:
+   - Se a fatura vence em março/${anoAtual}: datas de jan/fev/mar = ${anoAtual}, datas de abr-dez = ${anoAnterior}
+   - Se a fatura vence em abril/${anoAtual}: datas de jan-abr = ${anoAtual}, datas de mai-dez = ${anoAnterior}
+   - Se a fatura vence em maio/${anoAtual}: datas de jan-mai = ${anoAtual}, datas de jun-dez = ${anoAnterior}
+   - Regra geral: se o mês da data for maior que o mês de vencimento, o ano é ${anoAnterior}
+
+4. SEÇÕES — a fatura pode ter "Lançamentos Nacionais", "Lançamentos Internacionais", etc.
+   Extraia TODAS as linhas de TODAS as seções igualmente.
+
+=== IGNORAR COMPLETAMENTE ===
+- "Pagamento de Fatura via PIX", "Pagamento via Boleto", "Pagamento via TED" — não são despesas
+- Linhas de totais, subtotais, limites, saldo disponível
+- Cabeçalhos de seção
+
+=== FORMATO DE SAÍDA ===
+Retorne APENAS JSON válido, sem nenhum texto antes ou depois:
+{"transactions": [{"date": "YYYY-MM-DD", "description": "Nome completo do estabelecimento incluindo parcela se houver", "amount": 0.00, "type": "expense", "category": "Categoria"}]}
+
+Regras finais:
+- type "expense" para compras/débitos · type "income" APENAS para estornos/devoluções de estabelecimentos
+- Estornos/devoluções → category "Estorno/Devolução"
+- Repasse de IOF, Seguro Cartão → category "Tarifas Bancárias", type "expense"
+- Restaurantes, lanchonetes, delivery → Alimentação
+- Postos de combustível, pedágio, Uber, ônibus → Transporte
+- Farmácias, hospitais, planos de saúde → Saúde
+- Netflix, Spotify, Amazon Prime, iFood Club → Assinaturas
+- amount: número positivo, sem R$ ou pontos de milhar`;
 
     const { data, error } = await _sb.functions.invoke('ai-analyze', {
       body: { apiKey, prompt, model: 'claude-haiku-4-5-20251001', fileBase64, mimeType }
