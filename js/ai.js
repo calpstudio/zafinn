@@ -161,12 +161,14 @@ Retorne APENAS um JSON válido, sem texto adicional:
 {"transactions": [{"date": "YYYY-MM-DD", "description": "Nome do estabelecimento", "amount": 0.00, "type": "expense", "category": "Categoria"}]}
 
 Regras:
-- type: "expense" para compras, débitos, saques · "income" para pagamentos, estornos, créditos
+- type: "expense" para compras, débitos, saques · "income" APENAS para estornos e devoluções reais de estabelecimentos
 - amount: número positivo sem símbolo de moeda
 - category: use exatamente um dos nomes da lista de categorias
 - Inclua TODAS as transações realizadas, sem resumir
 - Ignore completamente: limite, saldo, totais da fatura, dados pessoais, parcelas futuras
 - Ignore pagamentos da fatura: linhas como "Pagamento de Fatura via PIX", "Pagamento via Boleto", "Pagamento via TED" — não são despesas nem receitas reais
+- Estornos e devoluções de estabelecimentos: type "income", category "Estorno/Devolução" — NÃO usar categoria de receita normal
+- Repasse de IOF, Seguro Cartão, tarifas bancárias → type "expense", category "Tarifas Bancárias"
 - Restaurantes/lanchonetes → Alimentação
 - Postos de combustível → Transporte
 - Farmácias, hospitais → Saúde

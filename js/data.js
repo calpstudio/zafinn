@@ -14,8 +14,8 @@ const ZData = (function() {
     debts: [],
     futureItems: [],
     categories: {
-      incomes: ['Salário', 'Pró-labore', 'Comissões', 'Renda Extra', 'Aluguéis', 'Investimentos', 'Pensão', 'Outras Receitas'],
-      expenses: ['Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Cartões', 'Dívidas', 'Assinaturas', 'Impostos', 'Investimentos', 'Vestuário', 'Animais', 'Presentes', 'Outros']
+      incomes: ['Salário', 'Pró-labore', 'Comissões', 'Renda Extra', 'Aluguéis', 'Investimentos', 'Pensão', 'Estorno/Devolução', 'Outras Receitas'],
+      expenses: ['Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Lazer', 'Educação', 'Cartões', 'Dívidas', 'Assinaturas', 'Tarifas Bancárias', 'Impostos', 'Investimentos', 'Vestuário', 'Animais', 'Presentes', 'Outros']
     },
     benchmarks: {
       'Moradia':       { min: 20, max: 25, emoji: '🏠', color: '#3B82F6' },
