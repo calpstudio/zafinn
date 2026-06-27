@@ -97,16 +97,28 @@ const ZCards = (function() {
   function render(state) {
     const cards = state.data.creditCards || [];
     const allTx = _allExpenseTx(state);
+    const month = state.month;
 
     if (cards.length === 0) return _renderEmpty();
 
     return `
       <div class="cards-page">
+
+        <!-- Ações rápidas -->
+        <div style="display:flex; gap:10px; padding:16px 20px 0; flex-wrap:wrap">
+          <button onclick="ZApp.openModal('importTransactions', {month:'${month}'})"
+            style="display:flex; align-items:center; gap:8px; padding:10px 18px; background:var(--primary); color:white; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px rgba(93,214,44,0.3)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Importar Fatura
+          </button>
+          <button onclick="ZApp.openModal('addCard')"
+            style="display:flex; align-items:center; gap:8px; padding:10px 18px; background:var(--card); color:var(--text-secondary); border:1px solid var(--border); border-radius:10px; font-size:13px; font-weight:600; cursor:pointer">
+            + Adicionar cartão
+          </button>
+        </div>
+
         <div class="cards-list">
           ${cards.map(c => _renderCardBlock(c, allTx)).join('')}
-        </div>
-        <div style="padding:0 20px 32px; text-align:center">
-          <button class="btn btn-outline" onclick="ZApp.openModal('addCard')">+ Adicionar cartão</button>
         </div>
       </div>
     `;

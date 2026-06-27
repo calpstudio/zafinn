@@ -57,7 +57,10 @@ const ZTransactions = (function() {
      ================================================ */
   function renderDesktop(state) {
     const { data, month } = state;
-    const allTx = (data.months[month]?.transactions || []);
+    const creditCardNames = new Set((state.data.creditCards || []).map(c => c.name.toLowerCase().trim()));
+    const rawTx = (data.months[month]?.transactions || []);
+    const allTx = rawTx.filter(tx => !creditCardNames.has((tx.account || '').toLowerCase().trim()));
+    const cardTxCount = rawTx.length - allTx.length;
     const projected = _getProjected(data.recurringTemplates || [], month, data.months);
 
     const filtered = activeFilter === 'income' ? allTx.filter(t => t.type === 'income')
@@ -74,6 +77,15 @@ const ZTransactions = (function() {
 
     return `
       <div class="screen-content">
+
+        ${cardTxCount > 0 ? `
+        <div onclick="ZApp.navigate('cards')" style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:rgba(99,102,241,0.07); border:1px solid rgba(99,102,241,0.18); border-radius:10px; margin-bottom:4px; cursor:pointer; transition:background 0.15s"
+          onmouseover="this.style.background='rgba(99,102,241,0.13)'" onmouseout="this.style.background='rgba(99,102,241,0.07)'">
+          <span style="font-size:13px; color:var(--text-secondary)">
+            💳 <strong>${cardTxCount} lançamento${cardTxCount > 1 ? 's' : ''}</strong> de cartão de crédito estão em Cartões & Faturas
+          </span>
+          <span style="font-size:12px; font-weight:700; color:var(--primary)">Ver faturas →</span>
+        </div>` : ''}
 
         <!-- KPIs -->
         <div class="kpi-grid">
@@ -129,7 +141,7 @@ const ZTransactions = (function() {
               </button>
               <button class="header-action-btn" style="padding:7px 14px; font-size:12px; background:var(--bg); color:var(--text-secondary); border:1px solid var(--border)" onclick="ZApp.openModal('importTransactions', {month:'${month}'})">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Importar
+                Importar Extrato
               </button>
               <button class="header-action-btn" style="padding:7px 14px; font-size:12px" onclick="ZApp.openModal('addTransaction', {month:'${month}'})">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -230,7 +242,10 @@ const ZTransactions = (function() {
      ================================================ */
   function renderMobile(state) {
     const { data, month } = state;
-    const allTx = (data.months[month]?.transactions || []);
+    const creditCardNames = new Set((state.data.creditCards || []).map(c => c.name.toLowerCase().trim()));
+    const rawTx = (data.months[month]?.transactions || []);
+    const allTx = rawTx.filter(tx => !creditCardNames.has((tx.account || '').toLowerCase().trim()));
+    const cardTxCount = rawTx.length - allTx.length;
     const projected = _getProjected(data.recurringTemplates || [], month, data.months);
     const monthName = ZUtils.getMonthName(month);
 
@@ -294,11 +309,18 @@ const ZTransactions = (function() {
           </div>
         </div>
 
+        <!-- Banner de cartões -->
+        ${cardTxCount > 0 ? `
+        <div onclick="ZApp.navigate('cards')" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(99,102,241,0.07); border:1px solid rgba(99,102,241,0.18); border-radius:10px; margin-bottom:4px; cursor:pointer">
+          <span style="font-size:13px; color:var(--text-secondary)">💳 ${cardTxCount} lançamento${cardTxCount > 1 ? 's' : ''} de cartão</span>
+          <span style="font-size:12px; font-weight:700; color:var(--primary)">Ver faturas →</span>
+        </div>` : ''}
+
         <!-- Botão importar -->
         <button onclick="ZApp.openModal('importTransactions', {month:'${month}'})"
           style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:11px; background:var(--card); border:1px dashed var(--border); border-radius:var(--radius-sm); color:var(--text-secondary); font-size:13px; font-weight:600; cursor:pointer; margin-bottom:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Importar Extrato / Fatura
+          Importar Extrato Bancário
         </button>
 
         <!-- Lista de transações -->
