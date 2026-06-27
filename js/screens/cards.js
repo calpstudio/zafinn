@@ -189,7 +189,7 @@ const ZCards = (function() {
           ${_renderTxList(curTx, 'Nenhum gasto nesta fatura', `${card.id}-cur`)}
         </div>
 
-        <!-- Fatura anterior -->
+        <!-- Fatura anterior (fechada) -->
         <div class="invoice-block closed">
           <div class="invoice-top">
             <div>
@@ -200,9 +200,81 @@ const ZCards = (function() {
           ${_renderTxList(prevTx, 'Sem dados da fatura anterior', `${card.id}-prev`, 3)}
         </div>
 
+        <!-- Histórico de faturas -->
+        ${_renderHistory(card, cardTx, curKey, prevKey)}
+
         <div class="card-actions">
           <button class="card-del-btn" onclick="ZCards.deleteCard('${card.id}')">Remover cartão</button>
         </div>
+      </div>
+    `;
+  }
+
+  function _renderHistory(card, cardTx, curKey, prevKey) {
+    // Pega todos os year_month distintos exceto fatura atual e anterior
+    const monthSet = new Set();
+    cardTx.forEach(tx => {
+      const key = tx.yearMonth || _billKey(tx.date, card.closing_day);
+      if (key !== curKey && key !== prevKey) monthSet.add(key);
+    });
+
+    const histKeys = [...monthSet].sort((a, b) => b.localeCompare(a));
+    if (histKeys.length === 0) return '';
+
+    const histExpandKey = `${card.id}-hist`;
+    const isOpen = _expanded.has(histExpandKey);
+
+    return `
+      <div class="invoice-block history">
+        <div class="invoice-top" onclick="ZCards.toggleExpand('${histExpandKey}')" style="cursor:pointer">
+          <div>
+            <div class="invoice-tag" style="background:#F1F5F9; color:#64748B">
+              📋 Histórico · ${histKeys.length} fatura${histKeys.length > 1 ? 's' : ''} anterior${histKeys.length > 1 ? 'es' : ''}
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div class="invoice-total muted">${_fmt(cardTx.filter(tx => {
+              const k = tx.yearMonth || _billKey(tx.date, card.closing_day);
+              return k !== curKey && k !== prevKey;
+            }).reduce((s,t) => s + t.amount, 0))}</div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"
+              style="transform:${isOpen ? 'rotate(180deg)' : 'rotate(0)'};transition:transform 0.2s;color:var(--text-muted)">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+        </div>
+
+        ${isOpen ? `
+          <div style="border-top:1px solid var(--border)">
+            ${histKeys.map(key => {
+              const [ky, km] = key.split('-').map(Number);
+              const label = MONTHS[km - 1] + ' ' + ky;
+              const txs = cardTx.filter(tx => (tx.yearMonth || _billKey(tx.date, card.closing_day)) === key);
+              const total = txs.reduce((s, t) => s + t.amount, 0);
+              const monthExpandKey = `${card.id}-h-${key}`;
+              const monthOpen = _expanded.has(monthExpandKey);
+              return `
+                <div style="border-bottom:1px solid var(--border-light)">
+                  <div onclick="ZCards.toggleExpand('${monthExpandKey}')"
+                    style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; background:${monthOpen ? 'var(--bg)' : 'transparent'}; transition:background 0.15s">
+                    <div>
+                      <div style="font-size:13px; font-weight:700; color:var(--text)">${label}</div>
+                      <div style="font-size:11px; color:var(--text-muted); margin-top:1px">${txs.length} lançamento${txs.length > 1 ? 's' : ''}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px">
+                      <span style="font-size:14px; font-weight:800; color:var(--danger)">${_fmt(total)}</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"
+                        style="transform:${monthOpen ? 'rotate(180deg)' : 'rotate(0)'};transition:transform 0.2s;color:var(--text-muted)">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </div>
+                  </div>
+                  ${monthOpen ? `<div style="background:var(--bg); padding:0 0 8px">${_renderTxList(txs, 'Sem transações', monthExpandKey, 50)}</div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        ` : ''}
       </div>
     `;
   }
