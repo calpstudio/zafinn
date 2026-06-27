@@ -869,11 +869,30 @@ const ZModals = (function() {
         </label>
       </div>` : ''}
       ${cards.length > 0 ? `
-      <div style="margin-bottom:8px">
-        <label style="font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px">Vincular ao cartão</label>
-        <select id="import-card-select" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--text); font-size:13px">
-          ${cardOptions}
-        </select>
+      <div style="margin-bottom:8px; display:flex; gap:8px">
+        <div style="flex:1">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px">Vincular ao cartão</label>
+          <select id="import-card-select" onchange="ZModals.toggleBillMonth()" style="width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--text); font-size:13px">
+            ${cardOptions}
+          </select>
+        </div>
+        <div id="import-bill-month-wrap" style="flex:1; display:none">
+          <label style="font-size:12px; color:var(--text-muted); font-weight:600; display:block; margin-bottom:4px">📅 Mês desta fatura</label>
+          <select id="import-bill-month" style="width:100%; padding:8px 10px; border:1.5px solid var(--primary); border-radius:var(--radius-sm); background:var(--primary-light); color:var(--primary); font-size:13px; font-weight:700">
+            ${(()=>{
+              const opts = [];
+              const now = new Date();
+              for (let i = -8; i <= 4; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                const sel = val === detectedMonth ? 'selected' : '';
+                opts.push(`<option value="${val}" ${sel}>${label}</option>`);
+              }
+              return opts.join('');
+            })()}
+          </select>
+        </div>
       </div>` : ''}
     `;
 
@@ -1012,16 +1031,12 @@ const ZModals = (function() {
 
     const msgEl = document.getElementById('import-loading-msg');
 
-    // Para importação com cartão, todas as transações vão para o mesmo mês de fatura
-    // (calculado pela data mais recente do extrato, não por cada parcela individualmente)
+    // Para importação com cartão, usa o mês selecionado manualmente pelo usuário.
+    // Evita erros de parcelas antigas serem lidas como datas futuras.
     let cardBillMonthFixed = null;
     if (cardData) {
-      const latestDate = _importedTxs
-        .map(t => ZImport.parseDate(t.date || '') || '')
-        .filter(Boolean)
-        .sort()
-        .pop();
-      cardBillMonthFixed = _cardBillMonth(latestDate || (month + '-01'), cardData.closing_day);
+      const manualMonth = document.getElementById('import-bill-month')?.value;
+      cardBillMonthFixed = manualMonth || month;
     }
 
     // Para imports sem cartão, detecta o mês real das transações ANTES de salvar.
@@ -1523,7 +1538,12 @@ const ZModals = (function() {
     saveGoal, saveContribution,
     finishOnboarding,
     selectCardColor, saveCard,
-    selectAccountColor, saveAccount
+    selectAccountColor, saveAccount,
+    toggleBillMonth: () => {
+      const card = document.getElementById('import-card-select')?.value;
+      const wrap = document.getElementById('import-bill-month-wrap');
+      if (wrap) wrap.style.display = card ? 'block' : 'none';
+    }
   };
 
   /* ================================================
