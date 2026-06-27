@@ -129,164 +129,116 @@ const ZCards = (function() {
       (tx.account || '').toLowerCase().trim() === card.name.toLowerCase().trim()
     );
 
-    const curKey  = _currentKey(card.closing_day);
+    const curKey = _currentKey(card.closing_day);
     const prevKey = _prevKey(card.closing_day);
-
     const _txBillKey = tx => tx.yearMonth || _billKey(tx.date, card.closing_day);
-    const curTx  = cardTx.filter(tx => _txBillKey(tx) === curKey);
-    const prevTx = cardTx.filter(tx => _txBillKey(tx) === prevKey);
 
-    const curTotal  = curTx.reduce((s, t) => s + t.amount, 0);
-    const prevTotal = prevTx.reduce((s, t) => s + t.amount, 0);
+    // Monta lista unificada de todos os períodos (atual + anteriores com dados)
+    const periodSet = new Set([curKey, prevKey]);
+    cardTx.forEach(tx => periodSet.add(_txBillKey(tx)));
+    const allPeriods = [...periodSet].sort((a, b) => b.localeCompare(a));
 
-    const due     = _dueDate(curKey, card.due_day);
-    const dueInfo = _dueText(due);
+    const curTx   = cardTx.filter(tx => _txBillKey(tx) === curKey);
+    const curTotal = curTx.reduce((s, t) => s + t.amount, 0);
+    const due      = _dueDate(curKey, card.due_day);
+    const dueInfo  = _dueText(due);
 
-    const [cy, cm] = curKey.split('-').map(Number);
-    const [py, pm] = prevKey.split('-').map(Number);
-    const curLabel  = MONTHS[cm - 1] + (cy !== new Date().getFullYear() ? ` ${cy}` : '');
-    const prevLabel = MONTHS[pm - 1] + (py !== new Date().getFullYear() ? ` ${py}` : '');
-
-    const limitPct = card.limit_amount ? Math.min(100, (curTotal / card.limit_amount) * 100) : 0;
-    const limitColor = limitPct >= 90 ? '#ef4444' : limitPct >= 70 ? '#f59e0b' : card.color;
+    const limitPct   = card.limit_amount ? Math.min(100, (curTotal / card.limit_amount) * 100) : 0;
+    const limitColor = limitPct >= 90 ? '#ef4444' : limitPct >= 70 ? '#f59e0b' : 'rgba(255,255,255,0.9)';
 
     return `
-      <div class="card-block">
+      <div class="card-block" style="border-radius:16px; overflow:hidden; margin-bottom:20px; box-shadow:0 2px 12px rgba(0,0,0,0.08)">
 
-        <!-- Cabeçalho visual do cartão -->
-        <div class="card-visual" style="background:${card.color}">
-          <div class="cv-top">
-            <span class="cv-name">${card.name}</span>
-            <div class="cv-chip">
-              <div class="cv-chip-line"></div>
-              <div class="cv-chip-line"></div>
-              <div class="cv-chip-line"></div>
-            </div>
+        <!-- Cabeçalho compacto colorido -->
+        <div style="background:${card.color}; padding:16px 18px">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+            <span style="font-size:17px; font-weight:800; color:white; letter-spacing:0.3px">${card.name}</span>
+            <button onclick="ZCards.deleteCard('${card.id}')"
+              style="background:rgba(0,0,0,0.25); border:none; border-radius:8px; padding:5px 10px; color:rgba(255,255,255,0.85); font-size:11px; font-weight:600; cursor:pointer">
+              Remover
+            </button>
           </div>
-          <div class="cv-bottom">
+          <div style="display:flex; gap:20px; align-items:center">
             <div>
-              <div class="cv-lbl">Fecha dia</div>
-              <div class="cv-val">${String(card.closing_day).padStart(2,'0')}</div>
+              <div style="font-size:10px; color:rgba(255,255,255,0.6); font-weight:600; text-transform:uppercase; letter-spacing:0.5px">Fecha</div>
+              <div style="font-size:16px; font-weight:800; color:white">dia ${String(card.closing_day).padStart(2,'0')}</div>
             </div>
             <div>
-              <div class="cv-lbl">Vence dia</div>
-              <div class="cv-val">${String(card.due_day).padStart(2,'0')}</div>
+              <div style="font-size:10px; color:rgba(255,255,255,0.6); font-weight:600; text-transform:uppercase; letter-spacing:0.5px">Vence</div>
+              <div style="font-size:16px; font-weight:800; color:white">dia ${String(card.due_day).padStart(2,'0')}</div>
             </div>
             ${card.limit_amount ? `
-            <div>
-              <div class="cv-lbl">Limite</div>
-              <div class="cv-val">${_fmt(card.limit_amount)}</div>
+            <div style="margin-left:auto; text-align:right">
+              <div style="font-size:10px; color:rgba(255,255,255,0.6); font-weight:600; text-transform:uppercase; letter-spacing:0.5px">Limite</div>
+              <div style="font-size:14px; font-weight:800; color:white">${_fmt(card.limit_amount)}</div>
             </div>` : ''}
           </div>
-        </div>
-
-        <!-- Fatura aberta -->
-        <div class="invoice-block open">
-          <div class="invoice-top">
-            <div>
-              <div class="invoice-tag open-tag">Fatura aberta · ${curLabel}</div>
-              <div class="invoice-due ${dueInfo.cls}">${dueInfo.text}</div>
+          ${card.limit_amount && curTotal > 0 ? `
+          <div style="margin-top:12px">
+            <div style="background:rgba(0,0,0,0.2); border-radius:4px; height:4px; overflow:hidden">
+              <div style="background:${limitColor}; width:${limitPct}%; height:100%; border-radius:4px; transition:width 0.4s"></div>
             </div>
-            <div class="invoice-total">${_fmt(curTotal)}</div>
-          </div>
-
-          ${card.limit_amount ? `
-          <div class="limit-info">
-            <div class="limit-track">
-              <div class="limit-fill" style="width:${limitPct}%;background:${limitColor}"></div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.65); margin-top:4px">
+              ${_fmt(curTotal)} usados de ${_fmt(card.limit_amount)} · ${limitPct.toFixed(0)}%
             </div>
-            <div class="limit-text">${_fmt(curTotal)} de ${_fmt(card.limit_amount)} · ${limitPct.toFixed(0)}%</div>
           </div>` : ''}
-
-          ${_renderTxList(curTx, 'Nenhum gasto nesta fatura', `${card.id}-cur`)}
         </div>
 
-        <!-- Fatura anterior (fechada) -->
-        <div class="invoice-block closed">
-          <div class="invoice-top">
-            <div>
-              <div class="invoice-tag closed-tag">Fatura fechada · ${prevLabel}</div>
-            </div>
-            <div class="invoice-total muted">${_fmt(prevTotal)}</div>
-          </div>
-          ${_renderTxList(prevTx, 'Sem dados da fatura anterior', `${card.id}-prev`, 3)}
-        </div>
+        <!-- Lista unificada de faturas -->
+        <div style="background:var(--card); border:1px solid var(--border); border-top:none">
+          ${allPeriods.map((key, i) => {
+            const [ky, km] = key.split('-').map(Number);
+            const label = MONTHS[km - 1] + ' ' + ky;
+            const txs = cardTx.filter(tx => _txBillKey(tx) === key);
+            const total = txs.reduce((s, t) => s + t.amount, 0);
+            const expandKey = `${card.id}-p-${key}`;
+            const isExpanded = _expanded.has(expandKey);
+            const isCur = key === curKey;
+            const isPrev = key === prevKey;
+            const hasData = txs.length > 0;
+            const isLast = i === allPeriods.length - 1;
 
-        <!-- Histórico de faturas -->
-        ${_renderHistory(card, cardTx, curKey, prevKey)}
+            // Badge de status
+            const badge = isCur
+              ? `<span style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(93,214,44,0.15); color:var(--primary); white-space:nowrap">${dueInfo.text}</span>`
+              : (isPrev && hasData)
+              ? `<span style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:rgba(239,68,68,0.1); color:var(--danger)">Fechada</span>`
+              : '';
 
-        <div class="card-actions">
-          <button class="card-del-btn" onclick="ZCards.deleteCard('${card.id}')">Remover cartão</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function _renderHistory(card, cardTx, curKey, prevKey) {
-    // Pega todos os year_month distintos exceto fatura atual e anterior
-    const monthSet = new Set();
-    cardTx.forEach(tx => {
-      const key = tx.yearMonth || _billKey(tx.date, card.closing_day);
-      if (key !== curKey && key !== prevKey) monthSet.add(key);
-    });
-
-    const histKeys = [...monthSet].sort((a, b) => b.localeCompare(a));
-    if (histKeys.length === 0) return '';
-
-    const histExpandKey = `${card.id}-hist`;
-    const isOpen = _expanded.has(histExpandKey);
-
-    return `
-      <div class="invoice-block history">
-        <div class="invoice-top" onclick="ZCards.toggleExpand('${histExpandKey}')" style="cursor:pointer">
-          <div>
-            <div class="invoice-tag" style="background:#F1F5F9; color:#64748B">
-              📋 Histórico · ${histKeys.length} fatura${histKeys.length > 1 ? 's' : ''} anterior${histKeys.length > 1 ? 'es' : ''}
-            </div>
-          </div>
-          <div style="display:flex; align-items:center; gap:8px">
-            <div class="invoice-total muted">${_fmt(cardTx.filter(tx => {
-              const k = tx.yearMonth || _billKey(tx.date, card.closing_day);
-              return k !== curKey && k !== prevKey;
-            }).reduce((s,t) => s + t.amount, 0))}</div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"
-              style="transform:${isOpen ? 'rotate(180deg)' : 'rotate(0)'};transition:transform 0.2s;color:var(--text-muted)">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-        </div>
-
-        ${isOpen ? `
-          <div style="border-top:1px solid var(--border)">
-            ${histKeys.map(key => {
-              const [ky, km] = key.split('-').map(Number);
-              const label = MONTHS[km - 1] + ' ' + ky;
-              const txs = cardTx.filter(tx => (tx.yearMonth || _billKey(tx.date, card.closing_day)) === key);
-              const total = txs.reduce((s, t) => s + t.amount, 0);
-              const monthExpandKey = `${card.id}-h-${key}`;
-              const monthOpen = _expanded.has(monthExpandKey);
-              return `
-                <div style="border-bottom:1px solid var(--border-light)">
-                  <div onclick="ZCards.toggleExpand('${monthExpandKey}')"
-                    style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; cursor:pointer; background:${monthOpen ? 'var(--bg)' : 'transparent'}; transition:background 0.15s">
-                    <div>
-                      <div style="font-size:13px; font-weight:700; color:var(--text)">${label}</div>
-                      <div style="font-size:11px; color:var(--text-muted); margin-top:1px">${txs.length} lançamento${txs.length > 1 ? 's' : ''}</div>
+            return `
+              <div style="border-bottom:${isLast ? 'none' : '1px solid var(--border)'}">
+                <div onclick="${hasData ? `ZCards.toggleExpand('${expandKey}')` : ''}"
+                  style="display:flex; align-items:center; gap:12px; padding:14px 18px; cursor:${hasData ? 'pointer' : 'default'}; background:${isExpanded ? 'var(--bg)' : 'transparent'}; transition:background 0.15s">
+                  <div style="flex:1; min-width:0">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                      <span style="font-size:15px; font-weight:700; color:var(--text)">${label}</span>
+                      ${badge}
                     </div>
-                    <div style="display:flex; align-items:center; gap:8px">
-                      <span style="font-size:14px; font-weight:800; color:var(--danger)">${_fmt(total)}</span>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"
-                        style="transform:${monthOpen ? 'rotate(180deg)' : 'rotate(0)'};transition:transform 0.2s;color:var(--text-muted)">
-                        <polyline points="6 9 12 15 18 9"/>
-                      </svg>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px">
+                      ${hasData ? `${txs.length} lançamento${txs.length > 1 ? 's' : ''}` : 'Sem lançamentos'}
                     </div>
                   </div>
-                  ${monthOpen ? `<div style="background:var(--bg); padding:0 0 8px">${_renderTxList(txs, 'Sem transações', monthExpandKey, 50)}</div>` : ''}
+                  <div style="display:flex; align-items:center; gap:10px; flex-shrink:0">
+                    <span style="font-size:16px; font-weight:800; color:${hasData ? 'var(--danger)' : 'var(--text-muted)'}">
+                      ${_fmt(total)}
+                    </span>
+                    ${hasData ? `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"
+                      style="color:var(--text-muted); transform:${isExpanded ? 'rotate(180deg)' : 'rotate(0)'}; transition:transform 0.2s; flex-shrink:0">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>` : '<div style="width:16px"></div>'}
+                  </div>
                 </div>
-              `;
-            }).join('')}
-          </div>
-        ` : ''}
+                ${isExpanded && hasData ? `
+                  <div style="border-top:1px solid var(--border); background:var(--bg)">
+                    ${_renderTxList(txs, '', expandKey, 50)}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
       </div>
     `;
   }
