@@ -181,6 +181,8 @@ const ZBudget = (function() {
           <div class="budget-alert-text">Seu orçamento está <strong>${ZUtils.formatCurrency(Math.abs(balance))}</strong> acima da sua receita. Revise as despesas ou adicione novas receitas.</div>
         </div>` : ''}
 
+        ${_renderCardsSummary(state, month)}
+
         <!-- Distribuição e Gabarito lado a lado -->
         <div class="equal-row">
 
@@ -390,6 +392,8 @@ const ZBudget = (function() {
           <div class="budget-alert-text">Seu orçamento está <strong>${ZUtils.formatCurrency(Math.abs(balance))}</strong> acima da sua receita.</div>
         </div>` : ''}
 
+        ${_renderCardsSummary(state, month)}
+
         <!-- Rodapé com totais -->
         <div class="budget-footer">
           <div class="budget-footer-row">
@@ -432,6 +436,62 @@ const ZBudget = (function() {
         </div>
 
         <div class="spacer-lg"></div>
+      </div>
+    `;
+  }
+
+  function _renderCardsSummary(state, month) {
+    const cards = state.data.creditCards || [];
+    if (cards.length === 0) return '';
+
+    // Coleta todas as transações de cartão (de todas as fontes)
+    const seen = new Set();
+    const allTx = [];
+    Object.values(state.data.months || {}).forEach(m => {
+      (m.transactions || []).forEach(tx => {
+        if (tx.type === 'expense' && !seen.has(tx.id)) { seen.add(tx.id); allTx.push(tx); }
+      });
+    });
+    (state.data.cardTransactions || []).forEach(tx => {
+      if (!seen.has(tx.id)) { seen.add(tx.id); allTx.push(tx); }
+    });
+
+    // Agrupa por cartão filtrando pelo mês selecionado
+    const cardTotals = cards.map(card => {
+      const cardName = card.name.toLowerCase().trim();
+      const total = allTx
+        .filter(tx => (tx.account || '').toLowerCase().trim() === cardName
+          && (tx.yearMonth || tx.year_month) === month)
+        .reduce((s, t) => s + t.amount, 0);
+      return { card, total };
+    }).filter(c => c.total > 0);
+
+    if (cardTotals.length === 0) return '';
+
+    const grandTotal = cardTotals.reduce((s, c) => s + c.total, 0);
+
+    return `
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h3>💳 Gastos Reais dos Cartões</h3>
+          <span style="font-size:12px; font-weight:700; color:var(--danger)">${ZUtils.formatCurrencyShort(grandTotal)}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px">
+          ${cardTotals.map(({ card, total }) => `
+            <div style="display:flex; align-items:center; gap:12px">
+              <div style="width:10px; height:10px; border-radius:50%; background:${card.color}; flex-shrink:0"></div>
+              <div style="flex:1; font-size:13px; font-weight:600">${card.name}</div>
+              <button onclick="ZApp.navigate('cards')"
+                style="font-size:11px; color:var(--primary); background:none; border:none; cursor:pointer; font-weight:600; padding:0">
+                Ver fatura →
+              </button>
+              <span style="font-size:14px; font-weight:800; color:var(--danger)">${ZUtils.formatCurrencyShort(total)}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--text-muted)">
+          Valores reais importados para ${ZUtils.getMonthName(month)}. Adicione a fatura total como item de orçamento se desejar planejamento.
+        </div>
       </div>
     `;
   }

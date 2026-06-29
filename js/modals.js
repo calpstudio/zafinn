@@ -940,10 +940,6 @@ const ZModals = (function() {
 
     // PDF ou imagem → usa IA
     if (_isAiFile(file.name)) {
-      if (!ZAI.hasKey()) {
-        alert('Para importar PDF e imagens, configure sua chave Claude em Configurações → Inteligência Artificial.');
-        return;
-      }
       if (file.size > 10 * 1024 * 1024) {
         alert('Arquivo muito grande. Máximo permitido: 10MB.');
         return;

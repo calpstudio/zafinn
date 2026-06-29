@@ -3,6 +3,7 @@
 // Deploy: Supabase Dashboard > Edge Functions > ai-analyze
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+declare const Deno: { env: { get(key: string): string | undefined } };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -15,11 +16,13 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { apiKey, prompt, model, fileBase64, mimeType, messages: historyMessages, systemPrompt } = await req.json();
+    const { apiKey: clientKey, prompt, model, fileBase64, mimeType, messages: historyMessages, systemPrompt } = await req.json();
 
+    // Usa chave do cliente se fornecida, senão usa secret do ambiente
+    const apiKey = clientKey || Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: { message: "apiKey é obrigatório" } }),
+        JSON.stringify({ error: { message: "Chave da API não configurada. Adicione em Configurações ou peça ao administrador." } }),
         { status: 400, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
