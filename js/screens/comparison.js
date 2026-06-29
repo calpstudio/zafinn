@@ -23,6 +23,23 @@ const ZComparison = (function() {
     const diagnosis = ZUtils.generateDiagnosis(data, month);
     const allCats = new Set([...Object.keys(catBudget), ...Object.keys(catReal)]);
 
+    // Receitas por categoria (orçado e realizado)
+    const incomeReal = {};
+    (data.months[month]?.transactions || [])
+      .filter(t => t.type === 'income')
+      .forEach(t => { incomeReal[t.category] = (incomeReal[t.category] || 0) + t.amount; });
+    const incomeBudget = {};
+    (data.months[month]?.budget?.incomes || [])
+      .forEach(i => { incomeBudget[i.category || i.name] = (incomeBudget[i.category || i.name] || 0) + i.amount; });
+    const allIncomeCats = new Set([...Object.keys(incomeBudget), ...Object.keys(incomeReal)]);
+    const incomeRows = Array.from(allIncomeCats).map(cat => {
+      const budgeted = incomeBudget[cat] || 0;
+      const actual = incomeReal[cat] || 0;
+      const diff = actual - budgeted; // positivo = recebeu mais = bom
+      const devPct = budgeted > 0 ? Math.round((diff / budgeted) * 100) : null;
+      return { cat, budgeted, actual, diff, devPct };
+    }).sort((a, b) => b.actual - a.actual);
+
     const balanceReal = totals.realIncome - totals.realExpense;
     const balanceBudget = totals.budgetIncome - totals.budgetExpense;
     const savingsPct = totals.realIncome > 0 ? ZUtils.pct(balanceReal, totals.realIncome) : 0;
@@ -96,7 +113,7 @@ const ZComparison = (function() {
               </div>
             </div>
 
-            ${catRows.length === 0 ? `
+            ${catRows.length === 0 && incomeRows.length === 0 ? `
               <div class="empty-state" style="padding:30px">
                 <div class="empty-icon">📊</div>
                 <p>Lance transações para ver a análise por categoria</p>
@@ -114,6 +131,38 @@ const ZComparison = (function() {
                 </tr>
               </thead>
               <tbody>
+                ${incomeRows.length > 0 ? `
+                <tr><td colspan="6" style="padding:6px 12px; background:var(--success-light); font-size:11px; font-weight:700; color:var(--success); text-transform:uppercase; letter-spacing:0.5px">💵 Receitas</td></tr>
+                ${incomeRows.map(({ cat, budgeted, actual, diff, devPct }) => {
+                  const cfg = ZUtils.getCatConfig(cat);
+                  const isGood = diff >= 0 && budgeted > 0; // recebeu igual ou mais = bom
+                  const isBad = diff < 0 && budgeted > 0;
+                  return `
+                  <tr>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <div style="background:${cfg.bg}; width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0">${cfg.emoji}</div>
+                        <span style="font-weight:600">${cat}</span>
+                      </div>
+                    </td>
+                    <td style="color:var(--text-secondary)">${budgeted > 0 ? ZUtils.formatCurrencyShort(budgeted) : '<span style="color:var(--text-muted)">—</span>'}</td>
+                    <td style="font-weight:700; color:var(--success)">${ZUtils.formatCurrencyShort(actual)}</td>
+                    <td style="font-weight:600; color:${isGood ? 'var(--success)' : isBad ? 'var(--warning)' : 'var(--text-muted)'}">
+                      ${budgeted > 0 ? (diff > 0 ? '+' : '') + ZUtils.formatCurrencyShort(diff) : '<span style="color:var(--text-muted)">—</span>'}
+                    </td>
+                    <td>—</td>
+                    <td>
+                      ${devPct !== null ? `
+                        <span style="padding:3px 8px; border-radius:20px; font-size:11px; font-weight:700;
+                          background:${isGood ? 'var(--success-light)' : isBad ? 'var(--danger-light)' : 'var(--border-light)'};
+                          color:${isGood ? 'var(--success)' : isBad ? 'var(--danger)' : 'var(--text-muted)'}">
+                          ${diff > 0 ? '+' : ''}${devPct}%
+                        </span>` : '<span style="color:var(--text-muted)">—</span>'}
+                    </td>
+                  </tr>`;
+                }).join('')}
+                <tr><td colspan="6" style="padding:6px 12px; background:var(--danger-light); font-size:11px; font-weight:700; color:var(--danger); text-transform:uppercase; letter-spacing:0.5px">💸 Despesas</td></tr>
+                ` : ''}
                 ${catRows.map(({ cat, budgeted, actual, diff, devPct, pctIncome }) => {
                   const cfg = ZUtils.getCatConfig(cat);
                   const isOver = diff > 0 && budgeted > 0;

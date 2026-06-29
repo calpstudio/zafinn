@@ -14,9 +14,10 @@ const ZCashflow = (function() {
      VERSÃO DESKTOP
      ================================================ */
   function renderDesktop(state) {
-    const { data, month } = state;
+    const { data } = state;
     const futureItems = data.futureItems || [];
-    const projections = ZUtils.getFutureProjections(data, month, 6);
+    // Sempre projeta a partir do mês atual real, independente do mês selecionado no app
+    const projections = ZUtils.getFutureProjections(data, ZUtils.getCurrentMonth(), 6);
     const hasData = projections.some(p => p.income > 0 || p.expense > 0);
 
     const incomeItems = futureItems.filter(f => f.type === 'income' && f.status === 'active');
@@ -252,9 +253,9 @@ const ZCashflow = (function() {
      VERSÃO MOBILE
      ================================================ */
   function renderMobile(state) {
-    const { data, month } = state;
+    const { data } = state;
     const futureItems = data.futureItems || [];
-    const projections = ZUtils.getFutureProjections(data, month, 6);
+    const projections = ZUtils.getFutureProjections(data, ZUtils.getCurrentMonth(), 6);
 
     return `
       <div class="screen-header">
