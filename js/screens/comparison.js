@@ -7,6 +7,26 @@
 const ZComparison = (function() {
 
   let activeTab = 'summary';
+  const _expandedCats = new Set();
+
+  function toggleCat(key) {
+    if (_expandedCats.has(key)) _expandedCats.delete(key);
+    else _expandedCats.add(key);
+    ZApp.render();
+  }
+
+  function _renderTxDrilldown(txs, color, isIncome) {
+    if (!txs || txs.length === 0) return `<div style="padding:8px 0; color:var(--text-muted); font-size:12px">Sem lançamentos registrados</div>`;
+    const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date));
+    return sorted.map(tx => `
+      <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border-light)">
+        <span style="font-size:11px; color:var(--text-muted); white-space:nowrap; flex-shrink:0">${ZUtils.formatDateShort(tx.date)}</span>
+        <span style="font-size:13px; font-weight:500; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${tx.description}</span>
+        ${tx.account ? `<span style="font-size:11px; color:var(--text-muted); flex-shrink:0">${tx.account}</span>` : ''}
+        <span style="font-size:13px; font-weight:700; color:${isIncome ? 'var(--success)' : 'var(--danger)'}; flex-shrink:0">${ZUtils.formatCurrencyShort(tx.amount)}</span>
+      </div>
+    `).join('');
+  }
 
   function render(state) {
     return ZApp.isDesktop() ? renderDesktop(state) : renderMobile(state);
@@ -44,6 +64,14 @@ const ZComparison = (function() {
     const balanceBudget = totals.budgetIncome - totals.budgetExpense;
     const savingsPct = totals.realIncome > 0 ? ZUtils.pct(balanceReal, totals.realIncome) : 0;
     const spentPct = totals.realIncome > 0 ? ZUtils.pct(totals.realExpense, totals.realIncome) : 0;
+
+    // Indexa transações por categoria e tipo para drill-down
+    const txByCat = {};
+    (data.months[month]?.transactions || []).forEach(tx => {
+      const key = `${tx.type}-${tx.category}`;
+      if (!txByCat[key]) txByCat[key] = [];
+      txByCat[key].push(tx);
+    });
 
     const catRows = Array.from(allCats).map(cat => {
       const budgeted = catBudget[cat] || 0;
@@ -135,14 +163,18 @@ const ZComparison = (function() {
                 <tr><td colspan="6" style="padding:6px 12px; background:var(--success-light); font-size:11px; font-weight:700; color:var(--success); text-transform:uppercase; letter-spacing:0.5px">💵 Receitas</td></tr>
                 ${incomeRows.map(({ cat, budgeted, actual, diff, devPct }) => {
                   const cfg = ZUtils.getCatConfig(cat);
-                  const isGood = diff >= 0 && budgeted > 0; // recebeu igual ou mais = bom
+                  const isGood = diff >= 0 && budgeted > 0;
                   const isBad = diff < 0 && budgeted > 0;
+                  const key = `income-${cat}`;
+                  const isExpanded = _expandedCats.has(key);
+                  const catTxs = txByCat[key] || [];
                   return `
-                  <tr>
+                  <tr onclick="ZComparison.toggleCat('${key}')" style="cursor:pointer; background:${isExpanded ? 'rgba(16,185,129,0.04)' : 'transparent'}">
                     <td>
                       <div style="display:flex; align-items:center; gap:8px">
                         <div style="background:${cfg.bg}; width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0">${cfg.emoji}</div>
                         <span style="font-weight:600">${cat}</span>
+                        ${catTxs.length > 0 ? `<span style="font-size:10px; color:var(--text-muted)">${catTxs.length} lançamento${catTxs.length > 1 ? 's' : ''}</span>` : ''}
                       </div>
                     </td>
                     <td style="color:var(--text-secondary)">${budgeted > 0 ? ZUtils.formatCurrencyShort(budgeted) : '<span style="color:var(--text-muted)">—</span>'}</td>
@@ -151,15 +183,22 @@ const ZComparison = (function() {
                       ${budgeted > 0 ? (diff > 0 ? '+' : '') + ZUtils.formatCurrencyShort(diff) : '<span style="color:var(--text-muted)">—</span>'}
                     </td>
                     <td>—</td>
-                    <td>
+                    <td style="display:flex; align-items:center; gap:6px">
                       ${devPct !== null ? `
                         <span style="padding:3px 8px; border-radius:20px; font-size:11px; font-weight:700;
                           background:${isGood ? 'var(--success-light)' : isBad ? 'var(--danger-light)' : 'var(--border-light)'};
                           color:${isGood ? 'var(--success)' : isBad ? 'var(--danger)' : 'var(--text-muted)'}">
                           ${diff > 0 ? '+' : ''}${devPct}%
                         </span>` : '<span style="color:var(--text-muted)">—</span>'}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" style="color:var(--text-muted); transform:${isExpanded ? 'rotate(180deg)' : 'none'}; transition:transform 0.2s; flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
                     </td>
-                  </tr>`;
+                  </tr>
+                  ${isExpanded ? `
+                  <tr style="background:var(--bg)">
+                    <td colspan="6" style="padding:8px 16px 12px 48px; border-left:3px solid var(--success)">
+                      ${_renderTxDrilldown(catTxs, cfg.color, true)}
+                    </td>
+                  </tr>` : ''}`;
                 }).join('')}
                 <tr><td colspan="6" style="padding:6px 12px; background:var(--danger-light); font-size:11px; font-weight:700; color:var(--danger); text-transform:uppercase; letter-spacing:0.5px">💸 Despesas</td></tr>
                 ` : ''}
@@ -167,12 +206,16 @@ const ZComparison = (function() {
                   const cfg = ZUtils.getCatConfig(cat);
                   const isOver = diff > 0 && budgeted > 0;
                   const isUnder = diff < 0 && budgeted > 0;
+                  const key = `expense-${cat}`;
+                  const isExpanded = _expandedCats.has(key);
+                  const catTxs = txByCat[key] || [];
                   return `
-                  <tr>
+                  <tr onclick="ZComparison.toggleCat('${key}')" style="cursor:pointer; background:${isExpanded ? 'rgba(239,68,68,0.03)' : 'transparent'}">
                     <td>
                       <div style="display:flex; align-items:center; gap:8px">
                         <div style="background:${cfg.bg}; width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0">${cfg.emoji}</div>
                         <span style="font-weight:600">${cat}</span>
+                        ${catTxs.length > 0 ? `<span style="font-size:10px; color:var(--text-muted)">${catTxs.length} lançamento${catTxs.length > 1 ? 's' : ''}</span>` : ''}
                       </div>
                     </td>
                     <td style="color:var(--text-secondary)">${budgeted > 0 ? ZUtils.formatCurrencyShort(budgeted) : '<span style="color:var(--text-muted)">—</span>'}</td>
@@ -181,15 +224,22 @@ const ZComparison = (function() {
                       ${budgeted > 0 ? (diff > 0 ? '+' : '') + ZUtils.formatCurrencyShort(diff) : '<span style="color:var(--text-muted)">—</span>'}
                     </td>
                     <td style="color:var(--text-secondary)">${pctIncome}%</td>
-                    <td>
+                    <td style="display:flex; align-items:center; gap:6px">
                       ${devPct !== null ? `
                         <span style="padding:3px 8px; border-radius:20px; font-size:11px; font-weight:700;
                           background:${isOver ? 'var(--danger-light)' : isUnder ? 'var(--success-light)' : 'var(--border-light)'};
                           color:${isOver ? 'var(--danger)' : isUnder ? 'var(--success)' : 'var(--text-muted)'}">
                           ${isOver ? '+' : ''}${devPct}%
                         </span>` : '<span style="color:var(--text-muted)">—</span>'}
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" style="color:var(--text-muted); transform:${isExpanded ? 'rotate(180deg)' : 'none'}; transition:transform 0.2s; flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
                     </td>
-                  </tr>`;
+                  </tr>
+                  ${isExpanded ? `
+                  <tr style="background:var(--bg)">
+                    <td colspan="6" style="padding:8px 16px 12px 48px; border-left:3px solid ${cfg.color}">
+                      ${_renderTxDrilldown(catTxs, cfg.color, false)}
+                    </td>
+                  </tr>` : ''}`;
                 }).join('')}
               </tbody>
             </table>
@@ -369,6 +419,14 @@ const ZComparison = (function() {
     const monthName = ZUtils.getMonthName(month);
     const allCats = new Set([...Object.keys(catBudget), ...Object.keys(catReal)]);
 
+    // Indexa transações por categoria para drill-down no mobile
+    const txByCat = {};
+    (data.months[month]?.transactions || []).forEach(tx => {
+      const key = `${tx.type}-${tx.category}`;
+      if (!txByCat[key]) txByCat[key] = [];
+      txByCat[key].push(tx);
+    });
+
     return `
       <div class="screen-header">
         <div>
@@ -397,7 +455,7 @@ const ZComparison = (function() {
         </div>
 
         ${activeTab === 'summary' ? renderSummaryMobile(totals) : ''}
-        ${activeTab === 'categories' ? renderCategoriesMobile(allCats, catBudget, catReal, totals.realIncome) : ''}
+        ${activeTab === 'categories' ? renderCategoriesMobile(allCats, catBudget, catReal, totals.realIncome, txByCat) : ''}
         ${activeTab === 'history' ? renderHistoryMobile(data.categoryHistory) : ''}
         ${activeTab === 'diagnosis' ? renderDiagnosisMobile(diagnosis) : ''}
 
@@ -454,7 +512,7 @@ const ZComparison = (function() {
     `;
   }
 
-  function renderCategoriesMobile(allCats, catBudget, catReal, totalIncome) {
+  function renderCategoriesMobile(allCats, catBudget, catReal, totalIncome, txByCat) {
     const rows = Array.from(allCats).map(cat => {
       const budgeted = catBudget[cat] || 0;
       const actual = catReal[cat] || 0;
@@ -472,24 +530,36 @@ const ZComparison = (function() {
           const cfg = ZUtils.getCatConfig(cat);
           const isOver = diff > 0 && budgeted > 0;
           const isUnder = diff < 0 && budgeted > 0;
+          const key = `expense-${cat}`;
+          const isExpanded = _expandedCats.has(key);
+          const catTxs = (txByCat || {})[key] || [];
           return `
-          <div style="padding:12px 16px; border-bottom:1px solid var(--border-light)">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
-              <div style="background:${cfg.bg}; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0">${cfg.emoji}</div>
-              <div style="flex:1">
-                <div style="font-size:13px; font-weight:700">${cat}</div>
-                <div style="font-size:11px; color:var(--text-muted)">${pctIncome}% da renda</div>
+          <div>
+            <div onclick="ZComparison.toggleCat('${key}')" style="padding:12px 16px; border-bottom:1px solid var(--border-light); cursor:pointer; background:${isExpanded ? 'rgba(239,68,68,0.03)' : 'transparent'}">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                <div style="background:${cfg.bg}; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0">${cfg.emoji}</div>
+                <div style="flex:1">
+                  <div style="font-size:13px; font-weight:700">${cat}</div>
+                  <div style="font-size:11px; color:var(--text-muted)">${pctIncome}% da renda · ${catTxs.length} lançamento${catTxs.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px">
+                  ${devPct !== null ? `<span class="deviation ${isOver ? 'over' : isUnder ? 'under' : 'ok'}">${isOver ? '+' : ''}${devPct}%</span>` : ''}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" style="color:var(--text-muted); transform:${isExpanded ? 'rotate(180deg)' : 'none'}; transition:transform 0.2s"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
               </div>
-              ${devPct !== null ? `<span class="deviation ${isOver ? 'over' : isUnder ? 'under' : 'ok'}">${isOver ? '+' : ''}${devPct}%</span>` : ''}
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; font-size:12px">
+                <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Orçado</div><div style="font-weight:600; color:var(--text-secondary)">${budgeted > 0 ? ZUtils.formatCurrencyShort(budgeted) : '—'}</div></div>
+                <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Real</div><div style="font-weight:700; color:var(--danger)">${ZUtils.formatCurrencyShort(actual)}</div></div>
+                <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Dif.</div><div style="font-weight:700; color:${isOver ? 'var(--danger)' : isUnder ? 'var(--success)' : 'var(--text-muted)'}">
+                  ${diff > 0 ? '+' : ''}${budgeted > 0 ? ZUtils.formatCurrencyShort(diff) : '—'}
+                </div></div>
+              </div>
+              ${budgeted > 0 ? `<div style="margin-top:8px"><div class="progress-bar" style="height:5px"><div class="fill ${isOver ? 'red' : 'blue'}" style="width:${Math.min(ZUtils.pct(actual, budgeted), 100)}%; background:${cfg.color}"></div></div></div>` : ''}
             </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; font-size:12px">
-              <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Orçado</div><div style="font-weight:600; color:var(--text-secondary)">${budgeted > 0 ? ZUtils.formatCurrencyShort(budgeted) : '—'}</div></div>
-              <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Real</div><div style="font-weight:700; color:var(--danger)">${ZUtils.formatCurrencyShort(actual)}</div></div>
-              <div style="text-align:center"><div style="color:var(--text-muted); font-size:10px; text-transform:uppercase">Dif.</div><div style="font-weight:700; color:${isOver ? 'var(--danger)' : isUnder ? 'var(--success)' : 'var(--text-muted)'}">
-                ${diff > 0 ? '+' : ''}${budgeted > 0 ? ZUtils.formatCurrencyShort(diff) : '—'}
-              </div></div>
-            </div>
-            ${budgeted > 0 ? `<div style="margin-top:8px"><div class="progress-bar" style="height:5px"><div class="fill ${isOver ? 'red' : 'blue'}" style="width:${Math.min(ZUtils.pct(actual, budgeted), 100)}%; background:${cfg.color}"></div></div></div>` : ''}
+            ${isExpanded ? `
+            <div style="padding:8px 16px 12px; background:var(--bg); border-bottom:1px solid var(--border-light); border-left:3px solid ${cfg.color}">
+              ${_renderTxDrilldown(catTxs, cfg.color, false)}
+            </div>` : ''}
           </div>`;
         }).join('')}
       </div>
@@ -576,6 +646,6 @@ const ZComparison = (function() {
     ZApp.render();
   }
 
-  return { render, setTab };
+  return { render, setTab, toggleCat };
 
 })();
